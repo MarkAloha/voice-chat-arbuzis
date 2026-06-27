@@ -1,59 +1,166 @@
 # voice-chat-arbuzis
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.17.
+Простой веб-сервис для голосового общения в одной комнате. Пользователь заходит на сайт, вводит общий пароль и имя, сразу попадает в комнату и может включать/выключать микрофон. Отображается список участников, которые уже в комнате.
 
-## Development server
+## Возможности
 
-To start a local development server, run:
+- Вход по общему паролю
+- Одна комната для всех участников
+- Голосовая связь через WebRTC (LiveKit)
+- Список участников в комнате
+- Включение и выключение микрофона
+- Русский интерфейс
 
-```bash
-ng serve
-```
+## Стек
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+| Часть | Технология |
+|-------|------------|
+| Frontend | Angular 21 |
+| Backend API | Express + LiveKit Server SDK |
+| Медиа-сервер | LiveKit (Docker) |
 
-## Code scaffolding
+## Требования
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+- [Node.js](https://nodejs.org/) 20+
+- [Docker](https://www.docker.com/) (для LiveKit)
+- npm
 
-```bash
-ng generate component component-name
-```
+## Быстрый старт
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+### 1. Клонировать репозиторий
 
 ```bash
-ng test
+git clone https://github.com/MarkAloha/voice-chat-arbuzis.git
+cd voice-chat-arbuzis
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
+### 2. Установить зависимости
 
 ```bash
-ng e2e
+npm install
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+### 3. Настроить переменные окружения
 
-## Additional Resources
+Скопируйте пример и отредактируйте пароль:
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+```bash
+cp .env.example .env
+```
+
+Основные переменные в `.env`:
+
+| Переменная | Описание |
+|------------|----------|
+| `SITE_PASSWORD` | Общий пароль для входа на сайт |
+| `LIVEKIT_API_KEY` | API-ключ LiveKit (должен совпадать с docker-compose) |
+| `LIVEKIT_API_SECRET` | Секрет LiveKit (должен совпадать с docker-compose) |
+| `LIVEKIT_URL` | Адрес LiveKit WebSocket (`ws://localhost:7880` для локальной разработки) |
+| `ROOM_NAME` | Имя единственной комнаты (по умолчанию `main`) |
+
+### 4. Запустить LiveKit
+
+В **первом терминале**:
+
+```bash
+npm run livekit
+```
+
+Дождитесь строки `starting LiveKit server`. Проверить, что контейнер работает:
+
+```bash
+docker compose ps
+```
+
+Статус должен быть **Up**.
+
+### 5. Запустить приложение
+
+Во **втором терминале**:
+
+```bash
+npm run dev
+```
+
+Команда поднимает:
+- API-сервер на `http://localhost:3000`
+- Angular-приложение на `http://localhost:4200`
+
+### 6. Открыть в браузере
+
+Перейдите на [http://localhost:4200](http://localhost:4200), введите пароль из `.env` и своё имя.
+
+Для проверки откройте второй браузер или вкладку в режиме инкognito с другим именем.
+
+## Команды
+
+| Команда | Описание |
+|---------|----------|
+| `npm run livekit` | Запустить LiveKit в Docker |
+| `npm run dev` | Запустить API + фронтенд (основная команда для разработки) |
+| `npm run api` | Только API-сервер (порт 3000) |
+| `npm start` | Только Angular (порт 4200, нужен отдельно запущенный API) |
+| `npm run build` | Сборка production |
+| `npm test` | Запуск тестов |
+
+## Структура проекта
+
+```text
+voice-chat-arbuzis/
+├── src/
+│   ├── app/
+│   │   ├── pages/login/    # Экран входа (пароль + имя)
+│   │   ├── pages/room/     # Голосовая комната
+│   │   ├── services/       # LiveKit, API, сессия
+│   │   └── guards/         # Защита маршрута комнаты
+│   └── api/                # Backend: проверка пароля, выдача токена
+├── dev-api.ts              # Dev-сервер API
+├── docker-compose.yml      # LiveKit
+├── load-env.ts             # Загрузка .env
+└── .env.example            # Пример настроек
+```
+
+## Как это работает
+
+1. Пользователь вводит пароль и имя на `/login`.
+2. API проверяет пароль и выдаёт JWT-токен для LiveKit.
+3. Браузер подключается к LiveKit и публикует аудио с микрофона.
+4. Список участников обновляется через события LiveKit Room.
+
+Сессия хранится только в памяти браузера — после обновления страницы (F5) или закрытия вкладки нужно войти заново.
+
+## Сборка production
+
+```bash
+npm run build
+npm run serve:ssr:voice-chat-arbuzis
+```
+
+## Частые проблемы
+
+### «Не удалось установить сигнальное соединение»
+
+LiveKit не запущен или контейнер упал. Проверьте:
+
+```bash
+docker compose ps
+docker compose logs --tail 20
+```
+
+Перезапустите:
+
+```bash
+npm run livekit
+```
+
+### Пароль из `.env` не меняется
+
+Перезапустите `npm run dev` (или `npm run api`). Пароль проверяет API-сервер на порту 3000, а не Angular.
+
+### Микрофон не работает
+
+В браузере нужен HTTPS (или `localhost` для локальной разработки). На VPS без домена и HTTPS микрофон блокируется.
+
+## Лицензия
+
+Private
