@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { AccessToken } from 'livekit-server-sdk';
 import { Router, json } from 'express';
-import { config } from './config';
+import { getConfig } from './config';
 
 function makeIdentity(nickname: string): string {
   const slug =
@@ -21,6 +21,7 @@ export function createApiRouter(): Router {
   router.post('/join', async (req, res) => {
     const password = req.body?.password as string | undefined;
     const nickname = req.body?.nickname as string | undefined;
+    const config = getConfig();
 
     if (!password || !nickname?.trim()) {
       res.status(400).json({ error: 'Укажите пароль и имя.' });

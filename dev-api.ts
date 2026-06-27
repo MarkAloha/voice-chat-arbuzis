@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './load-env.ts';
 import express from 'express';
 import { createApiRouter } from './src/api/routes.ts';
 
