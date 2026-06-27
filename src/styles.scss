@@ -1,0 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap');
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: 'Manrope', system-ui, sans-serif;
+  background: #0b0f14;
+  color: #f8fafc;
+}
+
+button,
+input {
+  font: inherit;
+}

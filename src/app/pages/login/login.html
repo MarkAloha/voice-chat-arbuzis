@@ -1,0 +1,37 @@
+<section class="card">
+  <h1>Голосовой чат</h1>
+  <p class="subtitle">Введите общий пароль и своё имя, чтобы войти в комнату.</p>
+
+  <form (ngSubmit)="submit()">
+    <label>
+      Пароль
+      <input
+        type="password"
+        name="password"
+        [(ngModel)]="password"
+        autocomplete="current-password"
+        required
+      />
+    </label>
+
+    <label>
+      Ваше имя
+      <input
+        type="text"
+        name="nickname"
+        [(ngModel)]="nickname"
+        autocomplete="nickname"
+        maxlength="32"
+        required
+      />
+    </label>
+
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+
+    <button type="submit" [disabled]="loading()">
+      {{ loading() ? 'Вход…' : 'Войти в комнату' }}
+    </button>
+  </form>
+</section>

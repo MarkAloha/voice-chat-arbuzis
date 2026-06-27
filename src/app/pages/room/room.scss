@@ -1,0 +1,117 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+.room {
+  max-width: 640px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1.25rem;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+h1,
+h2 {
+  margin: 0;
+}
+
+header p {
+  margin: 0.35rem 0 0;
+  color: #9aa7bd;
+}
+
+.status {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+}
+
+.status.online {
+  background: #166534;
+}
+
+.panel {
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #151a24;
+  border: 1px solid #273043;
+}
+
+ul {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #0f131a;
+  border: 1px solid #1f2937;
+}
+
+li.speaking {
+  border-color: #22c55e;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.badge {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mic {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.empty {
+  margin: 1rem 0 0;
+  color: #94a3b8;
+}
+
+footer button {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: none;
+  border-radius: 12px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+footer button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.banner.error {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+}

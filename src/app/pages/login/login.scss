@@ -1,0 +1,71 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+.card {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 2rem;
+  border-radius: 16px;
+  background: #151a24;
+  border: 1px solid #273043;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+}
+
+.subtitle {
+  margin: 0 0 1.5rem;
+  color: #9aa7bd;
+}
+
+form {
+  display: grid;
+  gap: 1rem;
+}
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  color: #c7d2e5;
+}
+
+input {
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #0f131a;
+  color: #f8fafc;
+}
+
+input:focus {
+  outline: 2px solid #3b82f6;
+  border-color: #3b82f6;
+}
+
+button {
+  margin-top: 0.5rem;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.error {
+  margin: 0;
+  color: #fca5a5;
+}

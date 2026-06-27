@@ -1,0 +1,45 @@
+<section class="room">
+  <header>
+    <div>
+      <h1>Комната</h1>
+      <p>Вы вошли как {{ displayName() }}</p>
+    </div>
+    <span class="status" [class.online]="connected()">
+      {{ connecting() ? 'Подключение…' : connected() ? 'Подключено' : 'Отключено' }}
+    </span>
+  </header>
+
+  @if (error()) {
+    <p class="banner error">{{ error() }}</p>
+  }
+
+  <section class="panel">
+    <h2>Участники ({{ participants().length }})</h2>
+
+    @if (participants().length === 0) {
+      <p class="empty">Пока никого нет</p>
+    } @else {
+      <ul>
+        @for (participant of participants(); track participant.identity) {
+          <li [class.speaking]="participant.isSpeaking">
+            <span class="name">
+              {{ participant.displayName }}
+              @if (participant.isLocal) {
+                <span class="badge">вы</span>
+              }
+            </span>
+            <span class="mic">
+              {{ participant.micEnabled ? 'микрофон вкл.' : 'микрофон выкл.' }}
+            </span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <footer>
+    <button type="button" (click)="toggleMic()" [disabled]="!connected()">
+      {{ micEnabled() ? 'Выключить микрофон' : 'Включить микрофон' }}
+    </button>
+  </footer>
+</section>
