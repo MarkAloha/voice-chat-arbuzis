@@ -4,7 +4,7 @@ services:
     command:
       - --bind=0.0.0.0
       - --node-ip=127.0.0.1
-      - "--keys=devkey:my-super-secret-key-123456789012345"
+      - "--keys=devkey: my-super-secret-key-123456789012345"
     ports:
       - "7880:7880"
       - "7881:7881"
