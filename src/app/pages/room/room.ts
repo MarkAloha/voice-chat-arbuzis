@@ -36,4 +36,8 @@ export class RoomComponent implements OnDestroy {
   protected toggleMic(): void {
     void this.liveKit.toggleMic();
   }
+
+  protected setVolume(identity: string, value: number): void {
+    this.liveKit.setParticipantVolume(identity, value);
+  }
 }

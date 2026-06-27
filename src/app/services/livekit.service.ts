@@ -1,23 +1,27 @@
 import { Injectable, signal } from '@angular/core';
 import {
   Participant,
+  RemoteParticipant,
   RemoteTrack,
   Room,
   RoomEvent,
   Track,
 } from 'livekit-client';
 import { JoinSession } from '../models/join.model';
+
 export interface ParticipantView {
   identity: string;
   displayName: string;
   isLocal: boolean;
   micEnabled: boolean;
   isSpeaking: boolean;
+  volume: number;
 }
 
 @Injectable({ providedIn: 'root' })
 export class LiveKitService {
   private room: Room | null = null;
+  private readonly volumeLevels = new Map<string, number>();
 
   readonly participants = signal<ParticipantView[]>([]);
   readonly connected = signal(false);
@@ -36,16 +40,23 @@ export class LiveKitService {
     const room = new Room({
       adaptiveStream: false,
       dynacast: false,
+      webAudioMix: true,
     });
 
     room
-      .on(RoomEvent.ParticipantConnected, () => this.syncParticipants())
-      .on(RoomEvent.ParticipantDisconnected, () => this.syncParticipants())
+      .on(RoomEvent.ParticipantConnected, (participant) => {
+        this.applyRemoteVolume(participant);
+        this.syncParticipants();
+      })
+      .on(RoomEvent.ParticipantDisconnected, (participant) => {
+        this.volumeLevels.delete(participant.identity);
+        this.syncParticipants();
+      })
       .on(RoomEvent.TrackMuted, () => this.syncParticipants())
       .on(RoomEvent.TrackUnmuted, () => this.syncParticipants())
       .on(RoomEvent.ActiveSpeakersChanged, () => this.syncParticipants())
-      .on(RoomEvent.TrackSubscribed, (track) => {
-        this.attachAudioTrack(track);
+      .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
+        this.attachAudioTrack(track, participant);
       })
       .on(RoomEvent.TrackUnsubscribed, (track) => {
         track.detach();
@@ -59,9 +70,15 @@ export class LiveKitService {
       await room.connect(session.livekitUrl, session.token);
       await room.startAudio();
       await room.localParticipant.setMicrophoneEnabled(true);
+
       this.room = room;
       this.connected.set(true);
       this.micEnabled.set(true);
+
+      for (const participant of room.remoteParticipants.values()) {
+        this.applyRemoteVolume(participant);
+      }
+
       this.syncParticipants();
     } catch (err) {
       const message =
@@ -86,22 +103,49 @@ export class LiveKitService {
     this.syncParticipants();
   }
 
+  setParticipantVolume(identity: string, volumePercent: number): void {
+    const clamped = Math.max(0, Math.min(200, Math.round(volumePercent)));
+    this.volumeLevels.set(identity, clamped);
+
+    const remote = this.room?.remoteParticipants.get(identity);
+    if (remote) {
+      remote.setVolume(clamped / 100);
+    }
+
+    this.syncParticipants();
+  }
+
   disconnect(): void {
     this.room?.disconnect();
     this.room = null;
+    this.volumeLevels.clear();
     this.connected.set(false);
     this.connecting.set(false);
     this.micEnabled.set(true);
     this.participants.set([]);
   }
 
-  private attachAudioTrack(track: RemoteTrack): void {
-    if (track.kind === Track.Kind.Audio) {
-      track.attach();
+  private attachAudioTrack(track: RemoteTrack, participant: Participant): void {
+    if (track.kind !== Track.Kind.Audio || participant.isLocal) {
+      return;
     }
+
+    track.attach();
+    this.applyRemoteVolume(participant);
   }
 
-  private syncParticipants(): void {    const room = this.room;
+  private applyRemoteVolume(participant: Participant): void {
+    if (participant.isLocal) {
+      return;
+    }
+
+    const remote = participant as RemoteParticipant;
+    const volumePercent = this.volumeLevels.get(participant.identity) ?? 100;
+    remote.setVolume(volumePercent / 100);
+  }
+
+  private syncParticipants(): void {
+    const room = this.room;
     if (!room) {
       this.participants.set([]);
       return;
@@ -144,6 +188,7 @@ export class LiveKitService {
       isLocal,
       micEnabled: micPublication ? !micPublication.isMuted : false,
       isSpeaking: activeSpeakerIds.has(participant.identity),
+      volume: isLocal ? 100 : (this.volumeLevels.get(participant.identity) ?? 100),
     };
   }
 }

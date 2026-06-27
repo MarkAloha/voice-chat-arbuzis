@@ -21,6 +21,7 @@ services:
     env_file: .env
     environment:
       PORT: 4000
+      SITE_HOST: voice-chat-arbuzis.duckdns.org
     expose:
       - '4000'
     depends_on:

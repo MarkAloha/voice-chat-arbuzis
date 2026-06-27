@@ -22,15 +22,31 @@
       <ul>
         @for (participant of participants(); track participant.identity) {
           <li [class.speaking]="participant.isSpeaking">
-            <span class="name">
-              {{ participant.displayName }}
-              @if (participant.isLocal) {
-                <span class="badge">вы</span>
-              }
-            </span>
-            <span class="mic">
-              {{ participant.micEnabled ? 'микрофон вкл.' : 'микрофон выкл.' }}
-            </span>
+            <div class="participant-main">
+              <span class="name">
+                {{ participant.displayName }}
+                @if (participant.isLocal) {
+                  <span class="badge">вы</span>
+                }
+              </span>
+              <span class="mic">
+                {{ participant.micEnabled ? 'микрофон вкл.' : 'микрофон выкл.' }}
+              </span>
+            </div>
+
+            @if (!participant.isLocal) {
+              <label class="volume">
+                <span class="volume-label">Громкость: {{ participant.volume }}%</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="1"
+                  [value]="participant.volume"
+                  (input)="setVolume(participant.identity, $any($event.target).valueAsNumber)"
+                />
+              </label>
+            }
           </li>
         }
       </ul>

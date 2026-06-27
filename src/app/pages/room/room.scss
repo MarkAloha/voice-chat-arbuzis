@@ -56,13 +56,34 @@ ul {
 }
 
 li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  gap: 0.75rem;
   padding: 0.85rem 1rem;
   border-radius: 12px;
   background: #0f131a;
   border: 1px solid #1f2937;
+}
+
+.participant-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.volume {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.volume-label {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.volume input[type='range'] {
+  width: 100%;
+  accent-color: #2563eb;
 }
 
 li.speaking {

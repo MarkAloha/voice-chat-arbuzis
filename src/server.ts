@@ -11,7 +11,13 @@ import { createApiRouter } from './api/routes';
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-const angularApp = new AngularNodeAppEngine();
+const siteHost = process.env['SITE_HOST'] ?? 'localhost';
+const angularApp = new AngularNodeAppEngine({
+  allowedHosts: [siteHost],
+  trustProxyHeaders: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto'],
+});
+
+app.set('trust proxy', true);
 
 app.use('/api', createApiRouter());
 
