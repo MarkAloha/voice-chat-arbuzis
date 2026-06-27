@@ -1,5 +1,5 @@
 {
-  "name": "voice-chat",
+  "name": "voice-chat-arbuzis",
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
@@ -10,7 +10,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:voice-chat": "node dist/voice-chat/server/server.mjs"
+    "serve:ssr:voice-chat-arbuzis": "node dist/voice-chat-arbuzis/server/server.mjs"
   },
   "private": true,
   "packageManager": "npm@10.9.2",

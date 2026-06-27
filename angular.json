@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "voice-chat": {
+    "voice-chat-arbuzis": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -72,10 +72,10 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "voice-chat:build:production"
+              "buildTarget": "voice-chat-arbuzis:build:production"
             },
             "development": {
-              "buildTarget": "voice-chat:build:development"
+              "buildTarget": "voice-chat-arbuzis:build:development"
             }
           },
           "defaultConfiguration": "development"
