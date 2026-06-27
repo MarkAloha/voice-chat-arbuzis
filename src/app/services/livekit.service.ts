@@ -1,12 +1,12 @@
 import { Injectable, signal } from '@angular/core';
 import {
   Participant,
+  RemoteTrack,
   Room,
   RoomEvent,
   Track,
 } from 'livekit-client';
 import { JoinSession } from '../models/join.model';
-
 export interface ParticipantView {
   identity: string;
   displayName: string;
@@ -44,6 +44,12 @@ export class LiveKitService {
       .on(RoomEvent.TrackMuted, () => this.syncParticipants())
       .on(RoomEvent.TrackUnmuted, () => this.syncParticipants())
       .on(RoomEvent.ActiveSpeakersChanged, () => this.syncParticipants())
+      .on(RoomEvent.TrackSubscribed, (track) => {
+        this.attachAudioTrack(track);
+      })
+      .on(RoomEvent.TrackUnsubscribed, (track) => {
+        track.detach();
+      })
       .on(RoomEvent.Disconnected, () => {
         this.connected.set(false);
         this.syncParticipants();
@@ -51,8 +57,8 @@ export class LiveKitService {
 
     try {
       await room.connect(session.livekitUrl, session.token);
+      await room.startAudio();
       await room.localParticipant.setMicrophoneEnabled(true);
-
       this.room = room;
       this.connected.set(true);
       this.micEnabled.set(true);
@@ -89,8 +95,13 @@ export class LiveKitService {
     this.participants.set([]);
   }
 
-  private syncParticipants(): void {
-    const room = this.room;
+  private attachAudioTrack(track: RemoteTrack): void {
+    if (track.kind === Track.Kind.Audio) {
+      track.attach();
+    }
+  }
+
+  private syncParticipants(): void {    const room = this.room;
     if (!room) {
       this.participants.set([]);
       return;
