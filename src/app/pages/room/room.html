@@ -29,8 +29,13 @@
                   <span class="badge">вы</span>
                 }
               </span>
-              <span class="mic">
-                {{ participant.micEnabled ? 'микрофон вкл.' : 'микрофон выкл.' }}
+              <span
+                class="mic"
+                [class.enabled]="participant.micEnabled"
+                [attr.aria-label]="participant.micEnabled ? 'Микрофон включён' : 'Микрофон выключен'"
+                [title]="participant.micEnabled ? 'Микрофон включён' : 'Микрофон выключен'"
+              >
+                {{ participant.micEnabled ? '🎙' : '🔇' }}
               </span>
             </div>
 
