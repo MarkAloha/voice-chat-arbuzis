@@ -129,7 +129,71 @@ voice-chat-arbuzis/
 
 Сессия хранится только в памяти браузера — после обновления страницы (F5) или закрытия вкладки нужно войти заново.
 
-## Сборка production
+## Деплой на VPS (production)
+
+### Требования
+
+- Ubuntu VPS с Docker и Docker Compose
+- Домен с A-записью на IP сервера (например DuckDNS)
+- Открытые порты: 80, 443, 7881/tcp, 50000–50100/udp
+
+### 1. DNS
+
+Настройте A-запись:
+
+```text
+voice-chat-arbuzis.duckdns.org  →  89.169.54.29
+```
+
+### 2. Firewall на VPS
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 7881/tcp
+sudo ufw allow 50000:50100/udp
+sudo ufw enable
+```
+
+### 3. Клонировать и настроить
+
+```bash
+git clone https://github.com/MarkAloha/voice-chat-arbuzis.git
+cd voice-chat-arbuzis
+cp .env.production.example .env
+nano .env
+```
+
+Обязательно измените в `.env`:
+
+- `SITE_PASSWORD` — пароль для входа
+- `LIVEKIT_API_SECRET` — длинный случайный секрет
+- `LIVEKIT_NODE_IP` — публичный IP VPS
+
+### 4. Запуск
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### 5. Проверка
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+Откройте https://voice-chat-arbuzis.duckdns.org
+
+### 6. Обновление
+
+```bash
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+## Сборка production (локально)
 
 ```bash
 npm run build

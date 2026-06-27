@@ -1,0 +1,7 @@
+voice-chat-arbuzis.duckdns.org {
+	handle_path /livekit/* {
+		reverse_proxy livekit:7880
+	}
+
+	reverse_proxy app:4000
+}

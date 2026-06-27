@@ -1,0 +1,45 @@
+name: voice-chat-arbuzis
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - livekit
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 4000
+    expose:
+      - '4000'
+    depends_on:
+      - livekit
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    env_file: .env
+    command:
+      - --bind=0.0.0.0
+      - --node-ip=${LIVEKIT_NODE_IP}
+      - "--keys=${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+    ports:
+      - '7881:7881/tcp'
+      - '50000-50100:50000-50100/udp'
+    expose:
+      - '7880'
+
+volumes:
+  caddy_data:
+  caddy_config:
