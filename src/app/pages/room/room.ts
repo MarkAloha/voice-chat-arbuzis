@@ -1,9 +1,12 @@
 import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { JoinService } from '../../services/join.service';
 import { LiveKitService } from '../../services/livekit.service';
 
 @Component({
   selector: 'app-room',
+  imports: [DatePipe, FormsModule],
   templateUrl: './room.html',
   styleUrl: './room.scss',
 })
@@ -16,7 +19,9 @@ export class RoomComponent implements OnDestroy {
   protected readonly connecting = this.liveKit.connecting;
   protected readonly micEnabled = this.liveKit.micEnabled;
   protected readonly error = this.liveKit.error;
+  protected readonly messages = this.liveKit.messages;
   protected readonly displayName = signal('');
+  protected messageText = '';
 
   constructor() {
     const session = this.joinService.session();
@@ -39,5 +44,11 @@ export class RoomComponent implements OnDestroy {
 
   protected setVolume(identity: string, value: number): void {
     this.liveKit.setParticipantVolume(identity, value);
+  }
+
+  protected sendMessage(): void {
+    const text = this.messageText;
+    this.messageText = '';
+    void this.liveKit.sendMessage(text);
   }
 }

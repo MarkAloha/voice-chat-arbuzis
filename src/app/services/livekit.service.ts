@@ -9,6 +9,8 @@ import {
 } from 'livekit-client';
 import { JoinSession } from '../models/join.model';
 
+const CHAT_TOPIC = 'chat-message';
+
 export interface ParticipantView {
   identity: string;
   displayName: string;
@@ -18,12 +20,23 @@ export interface ParticipantView {
   volume: number;
 }
 
+export interface ChatMessage {
+  id: string;
+  author: string;
+  text: string;
+  sentAt: Date;
+  isLocal: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class LiveKitService {
   private room: Room | null = null;
   private readonly volumeLevels = new Map<string, number>();
+  private readonly textEncoder = new TextEncoder();
+  private readonly textDecoder = new TextDecoder();
 
   readonly participants = signal<ParticipantView[]>([]);
+  readonly messages = signal<ChatMessage[]>([]);
   readonly connected = signal(false);
   readonly connecting = signal(false);
   readonly micEnabled = signal(true);
@@ -60,6 +73,9 @@ export class LiveKitService {
       })
       .on(RoomEvent.TrackUnsubscribed, (track) => {
         track.detach();
+      })
+      .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+        this.handleChatMessage(payload, participant, topic);
       })
       .on(RoomEvent.Disconnected, () => {
         this.connected.set(false);
@@ -103,6 +119,38 @@ export class LiveKitService {
     this.syncParticipants();
   }
 
+  async sendMessage(text: string): Promise<void> {
+    const room = this.room;
+    const message = text.trim();
+    if (!room || !message) {
+      return;
+    }
+
+    const chatMessage: ChatMessage = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      author: room.localParticipant.name || room.localParticipant.identity,
+      text: message.slice(0, 500),
+      sentAt: new Date(),
+      isLocal: true,
+    };
+
+    this.addMessage(chatMessage);
+
+    await room.localParticipant.publishData(
+      this.textEncoder.encode(
+        JSON.stringify({
+          id: chatMessage.id,
+          text: chatMessage.text,
+          sentAt: chatMessage.sentAt.toISOString(),
+        }),
+      ),
+      {
+        reliable: true,
+        topic: CHAT_TOPIC,
+      },
+    );
+  }
+
   setParticipantVolume(identity: string, volumePercent: number): void {
     const clamped = Math.max(0, Math.min(200, Math.round(volumePercent)));
     this.volumeLevels.set(identity, clamped);
@@ -119,6 +167,7 @@ export class LiveKitService {
     this.room?.disconnect();
     this.room = null;
     this.volumeLevels.clear();
+    this.messages.set([]);
     this.connected.set(false);
     this.connecting.set(false);
     this.micEnabled.set(true);
@@ -142,6 +191,42 @@ export class LiveKitService {
     const remote = participant as RemoteParticipant;
     const volumePercent = this.volumeLevels.get(participant.identity) ?? 100;
     remote.setVolume(volumePercent / 100);
+  }
+
+  private handleChatMessage(
+    payload: Uint8Array,
+    participant: Participant | undefined,
+    topic: string | undefined,
+  ): void {
+    if (topic !== CHAT_TOPIC || !participant) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(this.textDecoder.decode(payload)) as {
+        id?: string;
+        text?: string;
+        sentAt?: string;
+      };
+      const text = parsed.text?.trim();
+      if (!text) {
+        return;
+      }
+
+      this.addMessage({
+        id: parsed.id || `${Date.now()}-${participant.identity}`,
+        author: participant.name || participant.identity,
+        text: text.slice(0, 500),
+        sentAt: parsed.sentAt ? new Date(parsed.sentAt) : new Date(),
+        isLocal: false,
+      });
+    } catch {
+      // Ignore malformed data messages from other clients.
+    }
+  }
+
+  private addMessage(message: ChatMessage): void {
+    this.messages.update((messages) => [...messages, message].slice(-100));
   }
 
   private syncParticipants(): void {

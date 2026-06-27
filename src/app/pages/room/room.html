@@ -53,6 +53,41 @@
     }
   </section>
 
+  <section class="panel chat-panel">
+    <h2>Чат</h2>
+
+    <div class="messages">
+      @if (messages().length === 0) {
+        <p class="empty">Сообщений пока нет</p>
+      } @else {
+        @for (message of messages(); track message.id) {
+          <article class="message" [class.local]="message.isLocal">
+            <div class="message-meta">
+              <span>{{ message.author }}</span>
+              <time>{{ message.sentAt | date: 'HH:mm' }}</time>
+            </div>
+            <p>{{ message.text }}</p>
+          </article>
+        }
+      }
+    </div>
+
+    <form class="chat-form" (ngSubmit)="sendMessage()">
+      <input
+        type="text"
+        name="message"
+        [(ngModel)]="messageText"
+        maxlength="500"
+        autocomplete="off"
+        placeholder="Написать сообщение…"
+        [disabled]="!connected()"
+      />
+      <button type="submit" [disabled]="!connected() || !messageText.trim()">
+        Отправить
+      </button>
+    </form>
+  </section>
+
   <footer>
     <button type="button" (click)="toggleMic()" [disabled]="!connected()">
       {{ micEnabled() ? 'Выключить микрофон' : 'Включить микрофон' }}

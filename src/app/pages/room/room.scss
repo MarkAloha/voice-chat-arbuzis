@@ -113,6 +113,80 @@ li.speaking {
   color: #94a3b8;
 }
 
+.chat-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.messages {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.message {
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: #0f131a;
+  border: 1px solid #1f2937;
+}
+
+.message.local {
+  border-color: #2563eb;
+}
+
+.message-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  margin-bottom: 0.35rem;
+}
+
+.message p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+}
+
+.chat-form input {
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #0f131a;
+  color: #f8fafc;
+}
+
+.chat-form input:focus {
+  outline: 2px solid #3b82f6;
+  border-color: #3b82f6;
+}
+
+.chat-form button {
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-form button:disabled,
+.chat-form input:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 footer button {
   width: 100%;
   padding: 0.95rem 1rem;
