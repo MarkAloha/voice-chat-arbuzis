@@ -1,11 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Arbuzis">
-  <rect width="32" height="32" rx="8" fill="#0b0f14"/>
-  <rect x="3.5" y="3.5" width="25" height="25" rx="7" fill="#22c55e" fill-opacity="0.12"/>
   <text
     x="16"
-    y="21.5"
+    y="24"
     text-anchor="middle"
-    font-size="15"
+    font-size="24"
     font-family="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji, sans-serif"
   >🍉</text>
 </svg>
