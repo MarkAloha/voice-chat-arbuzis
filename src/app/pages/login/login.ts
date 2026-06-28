@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { pickRandomNickname } from '../../data/random-nicknames';
 import { AuthApiService } from '../../services/auth-api.service';
 import { JoinService } from '../../services/join.service';
 
@@ -20,8 +21,11 @@ export class LoginComponent {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected async submit(): Promise<void> {
-    if (this.loading()) {
+  protected pickRandomName(): void {
+    this.nickname = pickRandomNickname();
+  }
+
+  protected async submit(): Promise<void> {    if (this.loading()) {
       return;
     }
 

@@ -3,9 +3,32 @@
     <span class="brand-icon" aria-hidden="true">🍉</span>
     <h1>Arbuzis</h1>
   </div>
-  <p class="subtitle">Голосовой чат. Введите общий пароль и своё имя, чтобы войти в комнату.</p>
+  <p class="subtitle">Голосовой чат. Введите своё имя и общий пароль, чтобы войти в комнату.</p>
 
   <form (ngSubmit)="submit()">
+    <label>
+      <span class="label-row">
+        Ваше имя
+        <button
+          type="button"
+          class="random-name"
+          (click)="pickRandomName()"
+          title="Случайное имя"
+          aria-label="Подставить случайное имя"
+        >
+          ?
+        </button>
+      </span>
+      <input
+        type="text"
+        name="nickname"
+        [(ngModel)]="nickname"
+        autocomplete="nickname"
+        maxlength="32"
+        required
+      />
+    </label>
+
     <label>
       Пароль
       <input
@@ -17,23 +40,11 @@
       />
     </label>
 
-    <label>
-      Ваше имя
-      <input
-        type="text"
-        name="nickname"
-        [(ngModel)]="nickname"
-        autocomplete="nickname"
-        maxlength="32"
-        required
-      />
-    </label>
-
     @if (error()) {
       <p class="error">{{ error() }}</p>
     }
 
-    <button type="submit" [disabled]="loading()">
+    <button type="submit" class="submit" [disabled]="loading()">
       {{ loading() ? 'Вход…' : 'Войти в комнату' }}
     </button>
   </form>

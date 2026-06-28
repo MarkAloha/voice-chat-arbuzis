@@ -2,6 +2,13 @@ import { randomBytes } from 'node:crypto';
 import { AccessToken } from 'livekit-server-sdk';
 import { Router, json } from 'express';
 import { getConfig } from './config';
+import { createRateLimiter } from './rate-limit';
+
+const joinRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
+});
 
 function makeIdentity(nickname: string): string {
   const slug =
@@ -18,10 +25,17 @@ export function createApiRouter(): Router {
   const router = Router();
   router.use(json());
 
-  router.post('/join', async (req, res) => {
+  router.post('/join', joinRateLimit, async (req, res) => {
+    let config;
+    try {
+      config = getConfig();
+    } catch {
+      res.status(500).json({ error: 'Сервер не настроен. Обратитесь к администратору.' });
+      return;
+    }
+
     const password = req.body?.password as string | undefined;
     const nickname = req.body?.nickname as string | undefined;
-    const config = getConfig();
 
     if (!password || !nickname?.trim()) {
       res.status(400).json({ error: 'Укажите пароль и имя.' });

@@ -142,7 +142,7 @@ voice-chat-arbuzis/
 Настройте A-запись:
 
 ```text
-voice-chat-arbuzis.duckdns.org  →  89.169.54.29
+ваш-домен.example.com  →  IP_вашего_VPS
 ```
 
 ### 2. Firewall на VPS
