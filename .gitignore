@@ -45,3 +45,6 @@ Thumbs.db
 
 # Environment
 .env
+
+# Local agent rules (not for GitHub)
+.cursor/AGENT.local.md

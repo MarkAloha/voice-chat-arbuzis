@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import {
+  LocalAudioTrack,
   Participant,
   RemoteParticipant,
   RemoteTrack,
@@ -8,6 +9,7 @@ import {
   Track,
 } from 'livekit-client';
 import { JoinSession } from '../models/join.model';
+import { MicGainProcessor } from './mic-gain-processor';
 
 const CHAT_TOPIC = 'chat-message';
 
@@ -32,6 +34,8 @@ export interface ChatMessage {
 export class LiveKitService {
   private room: Room | null = null;
   private readonly volumeLevels = new Map<string, number>();
+  private localMicVolume = 100;
+  private micGainProcessor: MicGainProcessor | null = null;
   private readonly textEncoder = new TextEncoder();
   private readonly textDecoder = new TextDecoder();
 
@@ -86,6 +90,7 @@ export class LiveKitService {
       await room.connect(session.livekitUrl, session.token);
       await room.startAudio();
       await room.localParticipant.setMicrophoneEnabled(true);
+      await this.setupLocalMicGain(room);
 
       this.room = room;
       this.connected.set(true);
@@ -115,7 +120,17 @@ export class LiveKitService {
 
     const next = !this.micEnabled();
     await room.localParticipant.setMicrophoneEnabled(next);
+    if (next) {
+      await this.setupLocalMicGain(room);
+    }
     this.micEnabled.set(next);
+    this.syncParticipants();
+  }
+
+  setLocalMicVolume(volumePercent: number): void {
+    const clamped = Math.max(0, Math.min(200, Math.round(volumePercent)));
+    this.localMicVolume = clamped;
+    this.micGainProcessor?.setVolume(clamped);
     this.syncParticipants();
   }
 
@@ -167,6 +182,8 @@ export class LiveKitService {
     this.room?.disconnect();
     this.room = null;
     this.volumeLevels.clear();
+    this.localMicVolume = 100;
+    this.micGainProcessor = null;
     this.messages.set([]);
     this.connected.set(false);
     this.connecting.set(false);
@@ -273,7 +290,26 @@ export class LiveKitService {
       isLocal,
       micEnabled: micPublication ? !micPublication.isMuted : false,
       isSpeaking: activeSpeakerIds.has(participant.identity),
-      volume: isLocal ? 100 : (this.volumeLevels.get(participant.identity) ?? 100),
+      volume: isLocal
+        ? this.localMicVolume
+        : (this.volumeLevels.get(participant.identity) ?? 100),
     };
+  }
+
+  private async setupLocalMicGain(room: Room): Promise<void> {
+    const publication = room.localParticipant.getTrackPublication(
+      Track.Source.Microphone,
+    );
+    const track = publication?.audioTrack as LocalAudioTrack | undefined;
+    if (!track || track.isMuted) {
+      return;
+    }
+
+    if (!this.micGainProcessor) {
+      this.micGainProcessor = new MicGainProcessor();
+      await track.setProcessor(this.micGainProcessor as never);
+    }
+
+    this.micGainProcessor.setVolume(this.localMicVolume);
   }
 }

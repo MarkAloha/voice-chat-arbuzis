@@ -1,8 +1,11 @@
 <section class="room">
-  <header>
-    <div>
-      <h1>Комната</h1>
-      <p>Вы вошли как {{ displayName() }}</p>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">🍉</span>
+      <div>
+        <h1>Arbuzis</h1>
+        <p>Комната · main</p>
+      </div>
     </div>
     <span class="status" [class.online]="connected()">
       {{ connecting() ? 'Подключение…' : connected() ? 'Подключено' : 'Отключено' }}
@@ -13,89 +16,97 @@
     <p class="banner error">{{ error() }}</p>
   }
 
-  <section class="panel">
-    <h2>Участники ({{ participants().length }})</h2>
+  <div class="layout">
+    <section class="participants-panel">
+      <h2>Участники · {{ participants().length }}</h2>
 
-    @if (participants().length === 0) {
-      <p class="empty">Пока никого нет</p>
-    } @else {
-      <ul>
-        @for (participant of participants(); track participant.identity) {
-          <li [class.speaking]="participant.isSpeaking">
-            <div class="participant-main">
-              <span class="name">
-                {{ participant.displayName }}
-                @if (participant.isLocal) {
-                  <span class="badge">вы</span>
-                }
-              </span>
+      @if (participants().length === 0) {
+        <p class="empty">Пока никого нет</p>
+      } @else {
+        <div class="participant-grid">
+          @for (participant of participants(); track participant.identity) {
+            <article
+              class="participant-card"
+              [class.speaking]="participant.isSpeaking"
+              [class.local]="participant.isLocal"
+            >
+              <div class="avatar" [class.speaking]="participant.isSpeaking">
+                {{ initials(participant.displayName) }}
+              </div>
+
+              <span class="name">{{ participant.displayName }}</span>
+
               <span
                 class="mic"
                 [class.enabled]="participant.micEnabled"
                 [attr.aria-label]="participant.micEnabled ? 'Микрофон включён' : 'Микрофон выключен'"
-                [title]="participant.micEnabled ? 'Микрофон включён' : 'Микрофон выключен'"
               >
                 {{ participant.micEnabled ? '🎙' : '🔇' }}
               </span>
-            </div>
 
-            @if (!participant.isLocal) {
               <label class="volume">
-                <span class="volume-label">Громкость: {{ participant.volume }}%</span>
+                <span class="volume-label">Громкость · {{ participant.volume }}%</span>
                 <input
                   type="range"
                   min="0"
                   max="200"
                   step="1"
                   [value]="participant.volume"
-                  (input)="setVolume(participant.identity, $any($event.target).valueAsNumber)"
+                  (input)="setVolume(participant, $any($event.target).valueAsNumber)"
                 />
               </label>
-            }
-          </li>
-        }
-      </ul>
-    }
-  </section>
-
-  <section class="panel chat-panel">
-    <h2>Чат</h2>
-
-    <div class="messages">
-      @if (messages().length === 0) {
-        <p class="empty">Сообщений пока нет</p>
-      } @else {
-        @for (message of messages(); track message.id) {
-          <article class="message" [class.local]="message.isLocal">
-            <div class="message-meta">
-              <span>{{ message.author }}</span>
-              <time>{{ message.sentAt | date: 'HH:mm' }}</time>
-            </div>
-            <p>{{ message.text }}</p>
-          </article>
-        }
+            </article>
+          }
+        </div>
       }
-    </div>
+    </section>
 
-    <form class="chat-form" (ngSubmit)="sendMessage()">
-      <input
-        type="text"
-        name="message"
-        [(ngModel)]="messageText"
-        maxlength="500"
-        autocomplete="off"
-        placeholder="Написать сообщение…"
-        [disabled]="!connected()"
-      />
-      <button type="submit" [disabled]="!connected() || !messageText.trim()">
-        Отправить
-      </button>
-    </form>
-  </section>
+    <section class="chat-panel">
+      <h2>Чат</h2>
 
-  <footer>
-    <button type="button" (click)="toggleMic()" [disabled]="!connected()">
-      {{ micEnabled() ? 'Выключить микрофон' : 'Включить микрофон' }}
+      <div class="messages">
+        @if (messages().length === 0) {
+          <p class="empty">Сообщений пока нет</p>
+        } @else {
+          @for (message of messages(); track message.id) {
+            <article class="message" [class.local]="message.isLocal">
+              <div class="message-meta">
+                <span>{{ message.author }}</span>
+                <time>{{ message.sentAt | date: 'HH:mm' }}</time>
+              </div>
+              <p>{{ message.text }}</p>
+            </article>
+          }
+        }
+      </div>
+
+      <form class="chat-form" (ngSubmit)="sendMessage()">
+        <input
+          type="text"
+          name="message"
+          [(ngModel)]="messageText"
+          maxlength="500"
+          autocomplete="off"
+          placeholder="Написать сообщение…"
+          [disabled]="!connected()"
+        />
+        <button type="submit" [disabled]="!connected() || !messageText.trim()">
+          Отправить
+        </button>
+      </form>
+    </section>
+  </div>
+
+  <div class="mic-control">
+    <button
+      type="button"
+      class="mic-btn"
+      [class.enabled]="micEnabled()"
+      (click)="toggleMic()"
+      [disabled]="!connected()"
+      [attr.aria-label]="micEnabled() ? 'Выключить микрофон' : 'Включить микрофон'"
+    >
+      {{ micEnabled() ? '🎙' : '🔇' }}
     </button>
-  </footer>
+  </div>
 </section>
