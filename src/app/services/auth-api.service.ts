@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom, timeout } from 'rxjs';
-import { ApiError, JoinRequest, JoinResponse } from '../models/join.model';
+import { ApiError, JoinError, JoinRequest, JoinResponse } from '../models/join.model';
 
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
@@ -10,12 +10,22 @@ export class AuthApiService {
     join(request: JoinRequest): Promise<JoinResponse> {
         return firstValueFrom(
             this.http.post<JoinResponse>('/api/join', request).pipe(timeout(12000)),
-        ).catch((error: { error?: ApiError; message?: string }) => {
-            const message =
-                error.error?.error ??
-                error.message ??
-                'Не удалось войти в комнату. Проверьте интернет и попробуйте ещё раз.';
-            throw new Error(message);
+        ).catch((error: HttpErrorResponse | Error) => {
+            if (error instanceof HttpErrorResponse) {
+                const body = error.error as ApiError | undefined;
+                const message = body?.error ?? error.message;
+
+                if (body?.code === 'room_full') {
+                    throw new JoinError(message, body.code);
+                }
+
+                throw new Error(
+                    message ||
+                        'Не удалось войти в комнату. Проверьте интернет и попробуйте ещё раз.',
+                );
+            }
+
+            throw error;
         });
     }
 }

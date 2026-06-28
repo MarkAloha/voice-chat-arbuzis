@@ -67,8 +67,19 @@
             <p class="error">{{ error() }}</p>
         }
 
-        <button type="submit" class="submit" [disabled]="loading()">
-            {{ loading() ? 'Вход…' : 'Войти в комнату' }}
+        <button
+            type="submit"
+            class="submit"
+            [class.submit--full]="roomFull()"
+            [disabled]="loading() || roomFull()"
+        >
+            @if (loading()) {
+                Вход…
+            } @else if (roomFull()) {
+                Комната заполнена
+            } @else {
+                Войти в комнату
+            }
         </button>
     </form>
 </section>

@@ -15,4 +15,15 @@ export interface JoinResponse extends JoinSession {}
 
 export interface ApiError {
     error: string;
+    code?: 'room_full';
+}
+
+export class JoinError extends Error {
+    constructor(
+        message: string,
+        readonly code?: ApiError['code'],
+    ) {
+        super(message);
+        this.name = 'JoinError';
+    }
 }

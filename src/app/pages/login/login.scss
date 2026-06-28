@@ -169,6 +169,14 @@ input:focus {
     cursor: default;
 }
 
+.submit--full,
+.submit--full:disabled {
+    background: #dc2626;
+    color: #fef2f2;
+    opacity: 1;
+    cursor: not-allowed;
+}
+
 .error {
     margin: 0;
     color: #fca5a5;

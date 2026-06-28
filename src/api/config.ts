@@ -21,11 +21,14 @@ function optionalEnv(name: string, fallback: string): string {
 }
 
 export function getConfig() {
+    const roomMaxParticipants = Number.parseInt(optionalEnv('ROOM_MAX_PARTICIPANTS', '5'), 10);
+
     return {
         sitePassword: requireEnv('SITE_PASSWORD', 'dev-password'),
         livekitApiKey: requireEnv('LIVEKIT_API_KEY', 'devkey'),
         livekitApiSecret: requireEnv('LIVEKIT_API_SECRET', 'my-super-secret-key-123456789012345'),
         livekitUrl: requireEnv('LIVEKIT_URL', 'ws://localhost:7880'),
         roomName: optionalEnv('ROOM_NAME', 'main'),
+        roomMaxParticipants: Number.isFinite(roomMaxParticipants) ? roomMaxParticipants : 5,
     };
 }

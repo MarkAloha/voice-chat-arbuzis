@@ -1,9 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { pickRandomNickname } from '../../data/random-nicknames';
+import { JoinError } from '../../models/join.model';
 import { AuthApiService } from '../../services/auth-api.service';
 import { JoinService } from '../../services/join.service';
+
+const ROOM_FULL_COOLDOWN_MS = 30_000;
 
 @Component({
     selector: 'app-login',
@@ -11,19 +14,27 @@ import { JoinService } from '../../services/join.service';
     templateUrl: './login.html',
     styleUrl: './login.scss',
 })
-export class LoginComponent {
+export class LoginComponent implements OnDestroy {
     private readonly authApi = inject(AuthApiService);
     private readonly joinService = inject(JoinService);
     private readonly router = inject(Router);
 
     private readonly nicknameHistory = signal<string[]>([]);
     private nicknameOnFocus = '';
+    private roomFullTimeout: ReturnType<typeof setTimeout> | null = null;
 
     protected password = '';
     protected nickname = '';
     protected readonly loading = signal(false);
     protected readonly error = signal<string | null>(null);
+    protected readonly roomFull = signal(false);
     protected readonly canRestoreNickname = computed(() => this.nicknameHistory().length > 0);
+
+    ngOnDestroy(): void {
+        if (this.roomFullTimeout) {
+            clearTimeout(this.roomFullTimeout);
+        }
+    }
 
     protected pickRandomName(): void {
         this.rememberCurrentNickname();
@@ -54,7 +65,7 @@ export class LoginComponent {
     }
 
     protected async submit(): Promise<void> {
-        if (this.loading()) {
+        if (this.loading() || this.roomFull()) {
             return;
         }
 
@@ -69,11 +80,30 @@ export class LoginComponent {
             this.joinService.setSession(session);
             await this.router.navigateByUrl('/room');
         } catch (err) {
+            if (err instanceof JoinError && err.code === 'room_full') {
+                this.activateRoomFullCooldown();
+                return;
+            }
+
             const message = err instanceof Error ? err.message : 'Не удалось войти в комнату.';
             this.error.set(message);
         } finally {
             this.loading.set(false);
         }
+    }
+
+    private activateRoomFullCooldown(): void {
+        this.roomFull.set(true);
+        this.error.set(null);
+
+        if (this.roomFullTimeout) {
+            clearTimeout(this.roomFullTimeout);
+        }
+
+        this.roomFullTimeout = setTimeout(() => {
+            this.roomFull.set(false);
+            this.roomFullTimeout = null;
+        }, ROOM_FULL_COOLDOWN_MS);
     }
 
     private rememberCurrentNickname(): void {

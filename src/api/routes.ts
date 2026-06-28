@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { AccessToken } from 'livekit-server-sdk';
 import { Router, json } from 'express';
 import { getConfig } from './config';
+import { getRoomParticipantCount } from './livekit-room';
 import { createRateLimiter } from './rate-limit';
 
 const joinRateLimit = createRateLimiter({
@@ -44,6 +45,22 @@ export function createApiRouter(): Router {
 
         if (password !== config.sitePassword) {
             res.status(401).json({ error: 'Неверный пароль.' });
+            return;
+        }
+
+        let participantCount: number;
+        try {
+            participantCount = await getRoomParticipantCount();
+        } catch {
+            res.status(503).json({ error: 'Не удалось проверить комнату. Попробуйте позже.' });
+            return;
+        }
+
+        if (participantCount >= config.roomMaxParticipants) {
+            res.status(503).json({
+                error: 'Комната заполнена',
+                code: 'room_full',
+            });
             return;
         }
 
