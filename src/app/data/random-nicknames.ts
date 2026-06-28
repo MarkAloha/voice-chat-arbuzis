@@ -10,6 +10,9 @@ export const RANDOM_NICKNAMES = [
   'Марк',
   'ArBuZiS',
   'Alfem',
+  'Данил',
+  'Андрей',
+  'Кристина',
 ] as const;
 
 export function pickRandomNickname(): string {
