@@ -48,7 +48,10 @@ export class RoomComponent implements OnDestroy {
         return getPlayerColorHex(this.joinSession()?.colorIndex ?? 0);
     });
     protected readonly messages = this.liveKit.messages;
+    protected readonly noiseSuppressionEnabled = this.liveKit.noiseSuppressionEnabled;
+    protected readonly noiseSuppressionLoading = this.liveKit.noiseSuppressionLoading;
     protected messageText = '';
+    protected readonly settingsOpen = signal(false);
     protected readonly disconnecting = signal(false);
     private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
     private leaveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -81,6 +84,18 @@ export class RoomComponent implements OnDestroy {
 
     protected toggleMic(): void {
         void this.liveKit.toggleMic();
+    }
+
+    protected openSettings(): void {
+        this.settingsOpen.set(true);
+    }
+
+    protected closeSettings(): void {
+        this.settingsOpen.set(false);
+    }
+
+    protected onNoiseSuppressionToggle(enabled: boolean): void {
+        void this.liveKit.setNoiseSuppressionEnabled(enabled);
     }
 
     protected leaveRoom(): void {

@@ -23,6 +23,7 @@
         "@angular/platform-server": "^21.2.0",
         "@angular/router": "^21.2.0",
         "@angular/ssr": "^21.2.17",
+        "@workadventure/noise-suppression": "^0.1.1",
         "dotenv": "^17.4.2",
         "express": "^5.1.0",
         "livekit-client": "^2.20.0",

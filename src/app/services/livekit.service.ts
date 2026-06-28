@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import {
     LocalAudioTrack,
     Participant,
@@ -11,7 +11,8 @@ import {
 import { JoinSession } from '../models/join.model';
 import { ChatMessage } from '../models/chat.model';
 import { ParticipantView } from '../models/participant.model';
-import { MicGainProcessor } from './mic-gain-processor';
+import { MicAudioProcessor } from './mic-audio-processor';
+import { AudioSettingsService } from './audio-settings.service';
 import { getMicErrorMessage } from '../utils/mic-error-message';
 import { getPlayerColorHex, readColorIndex } from '../../shared/participant-colors';
 
@@ -20,10 +21,11 @@ const CHAT_DELETE_TOPIC = 'chat-delete';
 
 @Injectable({ providedIn: 'root' })
 export class LiveKitService {
+    private readonly audioSettings = inject(AudioSettingsService);
     private room: Room | null = null;
     private readonly volumeLevels = new Map<string, number>();
     private localMicVolume = 100;
-    private micGainProcessor: MicGainProcessor | null = null;
+    private micAudioProcessor: MicAudioProcessor | null = null;
     private localColorIndex = 0;
     private readonly textEncoder = new TextEncoder();
     private readonly textDecoder = new TextDecoder();
@@ -34,7 +36,10 @@ export class LiveKitService {
     readonly connecting = signal(false);
     readonly micEnabled = signal(true);
     readonly error = signal<string | null>(null);
+    readonly noiseSuppressionLoading = signal(false);
     readonly localIdentity = signal<string | null>(null);
+
+    readonly noiseSuppressionEnabled = this.audioSettings.noiseSuppression;
 
     /** Подключение к комнате; микрофон отдельно — отказ в mic не рвёт сессию. */
     async connect(session: JoinSession): Promise<void> {
@@ -146,7 +151,7 @@ export class LiveKitService {
     setLocalMicVolume(volumePercent: number): void {
         const clamped = Math.max(0, Math.min(200, Math.round(volumePercent)));
         this.localMicVolume = clamped;
-        this.micGainProcessor?.setVolume(clamped);
+        this.micAudioProcessor?.setVolume(clamped);
         this.syncParticipants();
     }
 
@@ -220,12 +225,22 @@ export class LiveKitService {
         this.syncParticipants();
     }
 
+    /** Переключение DTLN на лету — пересобираем audio pipeline без disconnect. */
+    async setNoiseSuppressionEnabled(enabled: boolean): Promise<void> {
+        if (this.noiseSuppressionEnabled() === enabled) {
+            return;
+        }
+
+        this.audioSettings.setNoiseSuppression(enabled);
+        await this.rebuildMicProcessor();
+    }
+
     disconnect(): void {
         this.room?.disconnect();
         this.room = null;
         this.volumeLevels.clear();
         this.localMicVolume = 100;
-        this.micGainProcessor = null;
+        this.micAudioProcessor = null;
         this.messages.set([]);
         this.connected.set(false);
         this.connecting.set(false);
@@ -417,34 +432,74 @@ export class LiveKitService {
         return !publication.isMuted;
     }
 
-    /** Ошибка mic не disconnect'ит комнату — можно слушать и писать в чат. */
     private async enableLocalMicrophone(room: Room): Promise<void> {
         try {
-            await room.localParticipant.setMicrophoneEnabled(true);
-            await this.setupLocalMicGain(room);
+            this.noiseSuppressionLoading.set(this.noiseSuppressionEnabled());
+            await room.localParticipant.setMicrophoneEnabled(true, this.buildCaptureOptions());
+            await this.setupLocalMicProcessor(room);
             this.micEnabled.set(true);
             this.error.set(null);
         } catch (err) {
             this.micEnabled.set(false);
             this.error.set(getMicErrorMessage(err));
             throw err;
+        } finally {
+            this.noiseSuppressionLoading.set(false);
         }
     }
 
-    /** LiveKit — один processor на трек; gain встроен сюда, а не вторым setProcessor. */
-    private async setupLocalMicGain(room: Room): Promise<void> {
+    private buildCaptureOptions() {
+        return {
+            echoCancellation: true,
+            autoGainControl: true,
+            // DTLN или «сырой» mic — browser NS не смешиваем с DTLN.
+            noiseSuppression: false,
+        };
+    }
+
+    private async rebuildMicProcessor(): Promise<void> {
+        const room = this.room;
+        if (!room || !room.localParticipant.isMicrophoneEnabled) {
+            return;
+        }
+
+        this.noiseSuppressionLoading.set(this.noiseSuppressionEnabled());
+        try {
+            await this.clearMicProcessor(room);
+            await this.setupLocalMicProcessor(room);
+        } finally {
+            this.noiseSuppressionLoading.set(false);
+        }
+    }
+
+    private async clearMicProcessor(room: Room): Promise<void> {
+        const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+        const track = publication?.audioTrack as LocalAudioTrack | undefined;
+        if (track) {
+            await track.stopProcessor();
+        }
+
+        if (this.micAudioProcessor) {
+            await this.micAudioProcessor.destroy();
+            this.micAudioProcessor = null;
+        }
+    }
+
+    /** LiveKit — один processor на трек; gain и DTLN в MicAudioProcessor. */
+    private async setupLocalMicProcessor(room: Room): Promise<void> {
         const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
         const track = publication?.audioTrack as LocalAudioTrack | undefined;
         if (!track || track.isMuted) {
             return;
         }
 
-        if (!this.micGainProcessor) {
-            this.micGainProcessor = new MicGainProcessor();
-            await track.setProcessor(this.micGainProcessor as never);
+        if (!this.micAudioProcessor) {
+            this.micAudioProcessor = new MicAudioProcessor();
         }
 
-        this.micGainProcessor.setVolume(this.localMicVolume);
+        this.micAudioProcessor.setNoiseSuppressionEnabled(this.noiseSuppressionEnabled());
+        await track.setProcessor(this.micAudioProcessor as never);
+        this.micAudioProcessor.setVolume(this.localMicVolume);
     }
 
     /** Карточка «я» до ответа LiveKit — без пустой сетки на connect. */

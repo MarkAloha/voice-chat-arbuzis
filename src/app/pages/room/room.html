@@ -30,9 +30,66 @@
         <p class="banner error">{{ error() }}</p>
     }
 
-    <div class="layout">
-        <section class="participants-panel">
-            <h2>Участники · {{ participants().length }}</h2>
+    @if (settingsOpen()) {
+        <section class="room-settings">
+            <header class="room-settings__header">
+                <button
+                    type="button"
+                    class="back-btn"
+                    (click)="closeSettings()"
+                    aria-label="Назад в комнату"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                            fill="currentColor"
+                            d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"
+                        />
+                    </svg>
+                </button>
+                <h2>Настройки</h2>
+            </header>
+
+            <label
+                class="setting-row"
+                title="Отключение шумоподавления может повысить скорость"
+            >
+                <span class="setting-label">
+                    <span>Шумоподавление</span>
+                </span>
+                <span class="setting-toggle">
+                    <input
+                        type="checkbox"
+                        [checked]="noiseSuppressionEnabled()"
+                        [disabled]="noiseSuppressionLoading()"
+                        (change)="onNoiseSuppressionToggle($any($event.target).checked)"
+                    />
+                    <span class="setting-toggle-track" aria-hidden="true"></span>
+                </span>
+            </label>
+
+            @if (noiseSuppressionLoading()) {
+                <p class="setting-hint">Загрузка модели шумоподавления…</p>
+            }
+        </section>
+    } @else {
+        <div class="layout">
+            <section class="participants-panel">
+                <div class="participants-heading">
+                    <h2>Участники · {{ participants().length }}</h2>
+                    <button
+                        type="button"
+                        class="settings-btn"
+                        (click)="openSettings()"
+                        aria-label="Настройки"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                                fill="currentColor"
+                                d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96a7.02 7.02 0 0 0-1.63-.94l-.36-2.54A.484.484 0 0 0 14.06 2h-4.12c-.24 0-.44.17-.48.41l-.36 2.54c-.59.22-1.13.53-1.63.94l-2.39-.96a.488.488 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.4 1.04.73 1.63.94l.36 2.54c.05.24.24.41.48.41h4.12c.24 0 .44-.17.48-.41l.36-2.54c.59-.22 1.13-.53 1.63-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"
+                            />
+                        </svg>
+                    </button>
+                </div>
 
             @if (participants().length === 0) {
                 <p class="empty">Пока никого нет</p>
@@ -160,6 +217,7 @@
             </form>
         </section>
     </div>
+    }
 
     <div class="mic-control">
         <button
