@@ -36,13 +36,26 @@
 
               <span class="name">{{ participant.displayName }}</span>
 
-              <span
-                class="mic"
-                [class.enabled]="participant.micEnabled"
-                [attr.aria-label]="participant.micEnabled ? 'Микрофон включён' : 'Микрофон выключен'"
-              >
-                {{ participant.micEnabled ? '🎙' : '🔇' }}
-              </span>
+              @if (participant.isLocal) {
+                <button
+                  type="button"
+                  class="mic"
+                  [class.enabled]="participant.micEnabled"
+                  (click)="toggleMic()"
+                  [disabled]="!connected()"
+                  [attr.aria-label]="participant.micEnabled ? 'Выключить микрофон' : 'Включить микрофон'"
+                >
+                  <app-mic-icon [enabled]="participant.micEnabled" />
+                </button>
+              } @else {
+                <span
+                  class="mic"
+                  [class.enabled]="participant.micEnabled"
+                  [attr.aria-label]="participant.micEnabled ? 'Микрофон включён' : 'Микрофон выключен'"
+                >
+                  <app-mic-icon [enabled]="participant.micEnabled" />
+                </span>
+              }
 
               <label class="volume">
                 <span class="volume-label">Громкость · {{ participant.volume }}%</span>
@@ -106,7 +119,7 @@
       [disabled]="!connected()"
       [attr.aria-label]="micEnabled() ? 'Выключить микрофон' : 'Включить микрофон'"
     >
-      {{ micEnabled() ? '🎙' : '🔇' }}
+      <app-mic-icon [enabled]="micEnabled()" [large]="true" />
     </button>
   </div>
 </section>

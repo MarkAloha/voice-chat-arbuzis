@@ -1,12 +1,13 @@
 import { Component, OnDestroy, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MicIconComponent } from '../../components/mic-icon/mic-icon';
 import { JoinService } from '../../services/join.service';
 import { LiveKitService, ParticipantView } from '../../services/livekit.service';
 
 @Component({
   selector: 'app-room',
-  imports: [DatePipe, FormsModule],
+  imports: [DatePipe, FormsModule, MicIconComponent],
   templateUrl: './room.html',
   styleUrl: './room.scss',
 })
