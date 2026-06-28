@@ -258,6 +258,8 @@ export class LiveKitService {
       room.activeSpeakers.map((speaker) => speaker.identity),
     );
 
+    this.micEnabled.set(room.localParticipant.isMicrophoneEnabled);
+
     const views: ParticipantView[] = [
       this.toView(room.localParticipant, true, activeSpeakerIds),
       ...[...room.remoteParticipants.values()].map((participant) =>
@@ -283,13 +285,13 @@ export class LiveKitService {
     isLocal: boolean,
     activeSpeakerIds: Set<string>,
   ): ParticipantView {
-    const micPublication = participant.getTrackPublication(Track.Source.Microphone);
-
     return {
       identity: participant.identity,
       displayName: participant.name || participant.identity,
       isLocal,
-      micEnabled: micPublication ? !micPublication.isMuted : false,
+      micEnabled: isLocal
+        ? this.micEnabled()
+        : participant.isMicrophoneEnabled,
       isSpeaking: activeSpeakerIds.has(participant.identity),
       volume: isLocal
         ? this.localMicVolume

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, inject } from '@angular/core';
+import { Component, OnDestroy, effect, inject, viewChild, ElementRef } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -24,6 +24,7 @@ export class RoomComponent implements OnDestroy {
   protected readonly error = this.liveKit.error;
   protected readonly messages = this.liveKit.messages;
   protected messageText = '';
+  private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
 
   constructor() {
     const session = this.joinService.session();
@@ -32,6 +33,11 @@ export class RoomComponent implements OnDestroy {
     }
 
     void this.liveKit.connect(session).catch(() => undefined);
+
+    effect(() => {
+      this.messages();
+      queueMicrotask(() => this.scrollChatToBottom());
+    });
   }
 
   ngOnDestroy(): void {
@@ -75,5 +81,14 @@ export class RoomComponent implements OnDestroy {
     const text = this.messageText;
     this.messageText = '';
     void this.liveKit.sendMessage(text);
+  }
+
+  private scrollChatToBottom(): void {
+    const element = this.messagesContainer()?.nativeElement;
+    if (!element) {
+      return;
+    }
+
+    element.scrollTop = element.scrollHeight;
   }
 }

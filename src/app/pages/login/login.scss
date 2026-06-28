@@ -3,7 +3,7 @@
   min-height: 100vh;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
+  padding: 2rem 1rem calc(2rem + 80px);
 }
 
 .card {

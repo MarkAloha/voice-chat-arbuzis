@@ -46,12 +46,12 @@
                   type="button"
                   class="avatar mic-avatar"
                   [class.speaking]="participant.isSpeaking"
-                  [class.enabled]="participant.micEnabled"
+                  [class.enabled]="micEnabled()"
                   (click)="toggleMic()"
                   [disabled]="!connected()"
-                  [attr.aria-label]="participant.micEnabled ? 'Выключить микрофон' : 'Включить микрофон'"
+                  [attr.aria-label]="micEnabled() ? 'Выключить микрофон' : 'Включить микрофон'"
                 >
-                  <app-mic-icon [enabled]="participant.micEnabled" />
+                  <app-mic-icon [enabled]="micEnabled()" />
                 </button>
               } @else {
                 <div class="avatar" [class.speaking]="participant.isSpeaking">
@@ -93,7 +93,7 @@
     <section class="chat-panel">
       <h2>Чат</h2>
 
-      <div class="messages">
+      <div class="messages" #messagesContainer>
         @if (messages().length === 0) {
           <p class="empty">Сообщений пока нет</p>
         } @else {
