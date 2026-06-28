@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { pickRandomNickname } from '../../data/random-nicknames';
@@ -15,6 +16,7 @@ export class LoginComponent {
   private readonly authApi = inject(AuthApiService);
   private readonly joinService = inject(JoinService);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
 
   protected password = '';
   protected nickname = '';
@@ -23,6 +25,10 @@ export class LoginComponent {
 
   protected pickRandomName(): void {
     this.nickname = pickRandomNickname();
+  }
+
+  protected goBack(): void {
+    this.location.back();
   }
 
   protected async submit(): Promise<void> {    if (this.loading()) {

@@ -206,7 +206,27 @@ button.mic:disabled {
   align-content: start;
   max-height: 320px;
   overflow-y: auto;
-  padding-right: 0.25rem;
+  padding-right: 0.35rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-input) transparent;
+}
+
+.messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 0.25rem 0;
+}
+
+.messages::-webkit-scrollbar-thumb {
+  background: var(--border-input);
+  border-radius: 999px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.55);
 }
 
 .message {
