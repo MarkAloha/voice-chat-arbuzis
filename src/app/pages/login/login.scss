@@ -67,11 +67,12 @@ label {
   gap: 1rem;
 }
 
-.name-input-row {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.5rem;
-  align-items: center;
+.name-input-wrap {
+  position: relative;
+}
+
+.name-input-wrap input {
+  width: 100%;
 }
 
 .icon-btn {
@@ -85,7 +86,6 @@ label {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  opacity: 0.3;
   transition:
     opacity 0.15s ease,
     color 0.15s ease;
@@ -101,21 +101,38 @@ label {
   font-weight: 700;
 }
 
+.icon-btn--random {
+  opacity: 0;
+}
+
+.icon-btn--random:hover,
+.icon-btn--random:focus-visible {
+  opacity: 1;
+  color: var(--accent);
+  outline: none;
+}
+
 .icon-btn--back {
+  position: absolute;
+  top: 50%;
+  right: 100%;
   width: 1.5rem;
   height: 1.5rem;
+  margin-right: 0.45rem;
+  opacity: 0.3;
+  transform: translateY(-50%);
+}
+
+.icon-btn--back:hover,
+.icon-btn--back:focus-visible {
+  opacity: 1;
+  color: var(--accent);
+  outline: none;
 }
 
 .icon-btn svg {
   width: 1.35rem;
   height: 1.35rem;
-}
-
-.icon-btn--ghost:hover,
-.icon-btn--ghost:focus-visible {
-  opacity: 1;
-  color: var(--accent);
-  outline: none;
 }
 
 input {
