@@ -5,73 +5,73 @@ import { getConfig } from './config';
 import { createRateLimiter } from './rate-limit';
 
 const joinRateLimit = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
 });
 
 function makeIdentity(nickname: string): string {
-  const slug =
-    nickname
-      .trim()
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, '-')
-      .replace(/^-|-$/g, '') || 'guest';
-  const suffix = randomBytes(2).toString('hex');
-  return `${slug}-${suffix}`;
+    const slug =
+        nickname
+            .trim()
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}]+/gu, '-')
+            .replace(/^-|-$/g, '') || 'guest';
+    const suffix = randomBytes(2).toString('hex');
+    return `${slug}-${suffix}`;
 }
 
 export function createApiRouter(): Router {
-  const router = Router();
-  router.use(json());
+    const router = Router();
+    router.use(json());
 
-  router.post('/join', joinRateLimit, async (req, res) => {
-    let config;
-    try {
-      config = getConfig();
-    } catch {
-      res.status(500).json({ error: 'Сервер не настроен. Обратитесь к администратору.' });
-      return;
-    }
+    router.post('/join', joinRateLimit, async (req, res) => {
+        let config;
+        try {
+            config = getConfig();
+        } catch {
+            res.status(500).json({ error: 'Сервер не настроен. Обратитесь к администратору.' });
+            return;
+        }
 
-    const password = req.body?.password as string | undefined;
-    const nickname = req.body?.nickname as string | undefined;
+        const password = req.body?.password as string | undefined;
+        const nickname = req.body?.nickname as string | undefined;
 
-    if (!password || !nickname?.trim()) {
-      res.status(400).json({ error: 'Укажите пароль и имя.' });
-      return;
-    }
+        if (!password || !nickname?.trim()) {
+            res.status(400).json({ error: 'Укажите пароль и имя.' });
+            return;
+        }
 
-    if (password !== config.sitePassword) {
-      res.status(401).json({ error: 'Неверный пароль.' });
-      return;
-    }
+        if (password !== config.sitePassword) {
+            res.status(401).json({ error: 'Неверный пароль.' });
+            return;
+        }
 
-    const displayName = nickname.trim().slice(0, 32);
-    const identity = makeIdentity(displayName);
+        const displayName = nickname.trim().slice(0, 32);
+        const identity = makeIdentity(displayName);
 
-    const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
-      identity,
-      name: displayName,
+        const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
+            identity,
+            name: displayName,
+        });
+
+        token.addGrant({
+            roomJoin: true,
+            room: config.roomName,
+            canPublish: true,
+            canSubscribe: true,
+        });
+
+        const jwt = await token.toJwt();
+
+        res.json({
+            token: jwt,
+            livekitUrl: config.livekitUrl,
+            roomName: config.roomName,
+            identity,
+            displayName,
+        });
     });
 
-    token.addGrant({
-      roomJoin: true,
-      room: config.roomName,
-      canPublish: true,
-      canSubscribe: true,
-    });
-
-    const jwt = await token.toJwt();
-
-    res.json({
-      token: jwt,
-      livekitUrl: config.livekitUrl,
-      roomName: config.roomName,
-      identity,
-      displayName,
-    });
-  });
-
-  return router;
+    return router;
 }

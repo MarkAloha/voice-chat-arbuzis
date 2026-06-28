@@ -3,223 +3,223 @@
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 :root {
-  --bg: #0b0f14;
-  --surface: #151a24;
-  --surface-raised: #0f131a;
-  --border: #273043;
-  --border-subtle: #1f2937;
-  --border-input: #334155;
-  --text: #f8fafc;
-  --text-muted: #94a3b8;
-  --accent: #22c55e;
+    --bg: #0b0f14;
+    --surface: #151a24;
+    --surface-raised: #0f131a;
+    --border: #273043;
+    --border-subtle: #1f2937;
+    --border-input: #334155;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #22c55e;
 }
 
 html,
 body {
-  margin: 0;
-  min-height: 100%;
-  font-family: 'Manrope', system-ui, sans-serif;
-  color: var(--text);
-  background-color: var(--bg);
-  background-image:
-    radial-gradient(ellipse 90% 55% at 50% 100%, rgba(34, 197, 94, 0.2) 0%, transparent 58%),
-    radial-gradient(ellipse 45% 35% at 50% 92%, rgba(22, 101, 52, 0.28) 0%, transparent 52%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+    margin: 0;
+    min-height: 100%;
+    font-family: 'Manrope', system-ui, sans-serif;
+    color: var(--text);
+    background-color: var(--bg);
+    background-image:
+        radial-gradient(ellipse 90% 55% at 50% 100%, rgba(34, 197, 94, 0.2) 0%, transparent 58%),
+        radial-gradient(ellipse 45% 35% at 50% 92%, rgba(22, 101, 52, 0.28) 0%, transparent 52%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
 }
 
 button,
 input {
-  font: inherit;
+    font: inherit;
 }
 
 @supports not selector(::-webkit-scrollbar) {
-  app-room .messages {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-input) transparent;
-  }
+    app-room .messages {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-input) transparent;
+    }
 }
 
 @supports selector(::-webkit-scrollbar) {
-  app-room .messages::-webkit-scrollbar {
-    width: 8px;
-    -webkit-appearance: none;
-    appearance: none;
-  }
+    app-room .messages::-webkit-scrollbar {
+        width: 8px;
+        -webkit-appearance: none;
+        appearance: none;
+    }
 
-  app-room .messages::-webkit-scrollbar-button,
-  app-room .messages::-webkit-scrollbar-button:single-button,
-  app-room .messages::-webkit-scrollbar-button:double-button,
-  app-room .messages::-webkit-scrollbar-button:decrement,
-  app-room .messages::-webkit-scrollbar-button:increment,
-  app-room .messages::-webkit-scrollbar-button:vertical:start:decrement,
-  app-room .messages::-webkit-scrollbar-button:vertical:end:increment,
-  app-room .messages::-webkit-scrollbar-button:horizontal:start:decrement,
-  app-room .messages::-webkit-scrollbar-button:horizontal:end:increment {
-    display: none;
-    width: 0;
-    height: 0;
-    background: transparent;
-  }
+    app-room .messages::-webkit-scrollbar-button,
+    app-room .messages::-webkit-scrollbar-button:single-button,
+    app-room .messages::-webkit-scrollbar-button:double-button,
+    app-room .messages::-webkit-scrollbar-button:decrement,
+    app-room .messages::-webkit-scrollbar-button:increment,
+    app-room .messages::-webkit-scrollbar-button:vertical:start:decrement,
+    app-room .messages::-webkit-scrollbar-button:vertical:end:increment,
+    app-room .messages::-webkit-scrollbar-button:horizontal:start:decrement,
+    app-room .messages::-webkit-scrollbar-button:horizontal:end:increment {
+        display: none;
+        width: 0;
+        height: 0;
+        background: transparent;
+    }
 
-  app-room .messages::-webkit-scrollbar-track,
-  app-room .messages::-webkit-scrollbar-track-piece {
-    background: transparent;
-  }
+    app-room .messages::-webkit-scrollbar-track,
+    app-room .messages::-webkit-scrollbar-track-piece {
+        background: transparent;
+    }
 
-  app-room .messages::-webkit-scrollbar-thumb {
-    background: var(--border-input);
-    border-radius: 999px;
-    min-height: 32px;
-  }
+    app-room .messages::-webkit-scrollbar-thumb {
+        background: var(--border-input);
+        border-radius: 999px;
+        min-height: 32px;
+    }
 
-  app-room .messages::-webkit-scrollbar-thumb:hover {
-    background: rgba(34, 197, 94, 0.55);
-  }
+    app-room .messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(34, 197, 94, 0.55);
+    }
 
-  app-room .messages::-webkit-scrollbar-corner {
-    background: transparent;
-  }
+    app-room .messages::-webkit-scrollbar-corner {
+        background: transparent;
+    }
 }
 
 app-room .mic-control {
-  position: fixed;
-  left: 50%;
-  bottom: 1.5rem;
-  transform: translateX(-50%);
-  z-index: 10;
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    z-index: 10;
 }
 
 app-room .mic-btn {
-  display: inline-flex;
-  width: 4.25rem;
-  height: 4.25rem;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 999px;
-  background: #334155;
-  color: #94a3b8;
-  cursor: pointer;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    display: inline-flex;
+    width: 4.25rem;
+    height: 4.25rem;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 999px;
+    background: #334155;
+    color: #94a3b8;
+    cursor: pointer;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
 app-room .mic-btn.enabled {
-  background: var(--accent);
-  color: #052e16;
-  box-shadow: 0 12px 40px rgba(34, 197, 94, 0.25);
+    background: var(--accent);
+    color: #052e16;
+    box-shadow: 0 12px 40px rgba(34, 197, 94, 0.25);
 }
 
 app-room .mic-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
+    opacity: 0.6;
+    cursor: default;
 }
 
 app-room .participant-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 0.85rem;
-  margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.85rem;
+    margin-top: 1rem;
 }
 
 app-room .participant-card {
-  display: grid;
-  gap: 0.55rem;
-  justify-items: center;
-  padding: 1rem 0.85rem;
-  border-radius: 16px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  text-align: center;
+    display: grid;
+    gap: 0.55rem;
+    justify-items: center;
+    padding: 1rem 0.85rem;
+    border-radius: 16px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    text-align: center;
 }
 
 app-room .participant-card.speaking {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25);
 }
 
 app-room .avatar {
-  display: inline-flex;
-  width: 3.25rem;
-  height: 3.25rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: #1e293b;
-  border: 2px solid #334155;
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: #e2e8f0;
+    display: inline-flex;
+    width: 3.25rem;
+    height: 3.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #1e293b;
+    border: 2px solid #334155;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #e2e8f0;
 }
 
 app-room .avatar.speaking {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
 }
 
 app-room button.avatar.mic-avatar {
-  cursor: pointer;
-  padding: 0;
-  font: inherit;
-  color: #94a3b8;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+    color: #94a3b8;
 }
 
 app-room button.avatar.mic-avatar:hover:not(:disabled) {
-  filter: brightness(1.12);
+    filter: brightness(1.12);
 }
 
 app-room button.avatar.mic-avatar:disabled {
-  opacity: 0.6;
-  cursor: default;
+    opacity: 0.6;
+    cursor: default;
 }
 
 app-room button.avatar.mic-avatar.enabled {
-  background: rgba(22, 101, 52, 0.85);
-  color: #dcfce7;
-  border-color: rgba(34, 197, 94, 0.55);
+    background: rgba(22, 101, 52, 0.85);
+    color: #dcfce7;
+    border-color: rgba(34, 197, 94, 0.55);
 }
 
 app-room .name {
-  font-weight: 600;
-  font-size: 0.95rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
+    font-weight: 600;
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 
 app-room .mic {
-  display: inline-flex;
-  width: 2rem;
-  height: 2rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: #334155;
-  color: #94a3b8;
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #334155;
+    color: #94a3b8;
 }
 
 app-room .mic.enabled {
-  background: rgba(22, 101, 52, 0.85);
-  color: #dcfce7;
+    background: rgba(22, 101, 52, 0.85);
+    color: #dcfce7;
 }
 
 app-room .volume {
-  display: grid;
-  gap: 0.3rem;
-  width: 100%;
+    display: grid;
+    gap: 0.3rem;
+    width: 100%;
 }
 
 app-room .volume-label {
-  color: var(--text-muted);
-  font-size: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
 }
 
 app-room .volume input[type='range'] {
-  width: 100%;
-  accent-color: var(--accent);
+    width: 100%;
+    accent-color: var(--accent);
 }

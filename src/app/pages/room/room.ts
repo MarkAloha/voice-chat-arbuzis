@@ -4,110 +4,116 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MicIconComponent } from '../../components/mic-icon/mic-icon';
 import { JoinService } from '../../services/join.service';
-import { LiveKitService, ParticipantView } from '../../services/livekit.service';
+import { LiveKitService, ChatMessage, ParticipantView } from '../../services/livekit.service';
 
 @Component({
-  selector: 'app-room',
-  imports: [DatePipe, FormsModule, MicIconComponent],
-  templateUrl: './room.html',
-  styleUrl: './room.scss',
+    selector: 'app-room',
+    imports: [DatePipe, FormsModule, MicIconComponent],
+    templateUrl: './room.html',
+    styleUrl: './room.scss',
 })
 export class RoomComponent implements OnDestroy {
-  private readonly joinService = inject(JoinService);
-  private readonly liveKit = inject(LiveKitService);
-  private readonly router = inject(Router);
+    private readonly joinService = inject(JoinService);
+    private readonly liveKit = inject(LiveKitService);
+    private readonly router = inject(Router);
 
-  protected readonly participants = this.liveKit.participants;
-  protected readonly connected = this.liveKit.connected;
-  protected readonly connecting = this.liveKit.connecting;
-  protected readonly micEnabled = this.liveKit.micEnabled;
-  protected readonly error = this.liveKit.error;
-  protected readonly messages = this.liveKit.messages;
-  protected messageText = '';
-  protected readonly disconnecting = signal(false);
-  private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
-  private leaveTimeout: ReturnType<typeof setTimeout> | null = null;
+    protected readonly participants = this.liveKit.participants;
+    protected readonly connected = this.liveKit.connected;
+    protected readonly connecting = this.liveKit.connecting;
+    protected readonly micEnabled = this.liveKit.micEnabled;
+    protected readonly error = this.liveKit.error;
+    protected readonly messages = this.liveKit.messages;
+    protected readonly localIdentity = this.liveKit.localIdentity;
+    protected messageText = '';
+    protected readonly disconnecting = signal(false);
+    private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
+    private leaveTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  constructor() {
-    const session = this.joinService.session();
-    if (!session) {
-      return;
+    constructor() {
+        const session = this.joinService.session();
+        if (!session) {
+            return;
+        }
+
+        void this.liveKit.connect(session).catch(() => undefined);
+
+        effect(() => {
+            this.messages();
+            queueMicrotask(() => this.scrollChatToBottom());
+        });
     }
 
-    void this.liveKit.connect(session).catch(() => undefined);
+    ngOnDestroy(): void {
+        if (this.leaveTimeout) {
+            clearTimeout(this.leaveTimeout);
+        }
 
-    effect(() => {
-      this.messages();
-      queueMicrotask(() => this.scrollChatToBottom());
-    });
-  }
-
-  ngOnDestroy(): void {
-    if (this.leaveTimeout) {
-      clearTimeout(this.leaveTimeout);
+        this.liveKit.disconnect();
+        this.joinService.clear();
     }
 
-    this.liveKit.disconnect();
-    this.joinService.clear();
-  }
-
-  protected toggleMic(): void {
-    void this.liveKit.toggleMic();
-  }
-
-  protected leaveRoom(): void {
-    if (this.disconnecting()) {
-      return;
+    protected toggleMic(): void {
+        void this.liveKit.toggleMic();
     }
 
-    this.disconnecting.set(true);
+    protected leaveRoom(): void {
+        if (this.disconnecting()) {
+            return;
+        }
 
-    this.leaveTimeout = setTimeout(() => {
-      this.leaveTimeout = null;
-      this.liveKit.disconnect();
-      this.joinService.clear();
-      void this.router.navigateByUrl('/login');
-    }, 500);
-  }
+        this.disconnecting.set(true);
 
-  protected setVolume(participant: ParticipantView, value: number): void {
-    if (participant.isLocal) {
-      this.liveKit.setLocalMicVolume(value);
-      return;
+        this.leaveTimeout = setTimeout(() => {
+            this.leaveTimeout = null;
+            this.liveKit.disconnect();
+            this.joinService.clear();
+            void this.router.navigateByUrl('/login');
+        }, 500);
     }
 
-    this.liveKit.setParticipantVolume(participant.identity, value);
-  }
+    protected setVolume(participant: ParticipantView, value: number): void {
+        if (participant.isLocal) {
+            this.liveKit.setLocalMicVolume(value);
+            return;
+        }
 
-  protected initials(name: string): string {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) {
-      return '?';
+        this.liveKit.setParticipantVolume(participant.identity, value);
     }
 
-    if (parts.length === 1) {
-      return parts[0].slice(0, 2).toUpperCase();
+    protected initials(name: string): string {
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) {
+            return '?';
+        }
+
+        if (parts.length === 1) {
+            return parts[0].slice(0, 2).toUpperCase();
+        }
+
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
 
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-
-  protected sendMessage(): void {
-    const text = this.messageText;
-    this.messageText = '';
-    void this.liveKit.sendMessage(text);
-  }
-
-  protected deleteMessage(messageId: string): void {
-    void this.liveKit.deleteMessage(messageId);
-  }
-
-  private scrollChatToBottom(): void {
-    const element = this.messagesContainer()?.nativeElement;
-    if (!element) {
-      return;
+    protected sendMessage(): void {
+        const text = this.messageText;
+        this.messageText = '';
+        void this.liveKit.sendMessage(text);
     }
 
-    element.scrollTop = element.scrollHeight;
-  }
+    protected deleteMessage(messageId: string): void {
+        void this.liveKit.deleteMessage(messageId);
+    }
+
+    protected canDeleteMessage(message: ChatMessage): boolean {
+        const identity = this.localIdentity();
+        return identity !== null && message.authorIdentity === identity;
+    }
+
+    private scrollChatToBottom(): void {
+        const element = this.messagesContainer()?.nativeElement;
+        if (!element) {
+            return;
+        }
+
+        element.scrollTop = element.scrollHeight;
+    }
 }

@@ -23,11 +23,11 @@
 
 ## Стек
 
-| Часть | Технология |
-|-------|------------|
-| Frontend | Angular 21 |
-| Backend API | Express + LiveKit Server SDK |
-| Медиа-сервер | LiveKit (Docker) |
+| Часть        | Технология                   |
+| ------------ | ---------------------------- |
+| Frontend     | Angular 21                   |
+| Backend API  | Express + LiveKit Server SDK |
+| Медиа-сервер | LiveKit (Docker)             |
 
 ## Требования
 
@@ -60,13 +60,13 @@ cp .env.example .env
 
 Основные переменные в `.env`:
 
-| Переменная | Описание |
-|------------|----------|
-| `SITE_PASSWORD` | Общий пароль для входа на сайт |
-| `LIVEKIT_API_KEY` | API-ключ LiveKit (должен совпадать с docker-compose) |
-| `LIVEKIT_API_SECRET` | Секрет LiveKit (должен совпадать с docker-compose) |
-| `LIVEKIT_URL` | Адрес LiveKit WebSocket (`ws://localhost:7880` для локальной разработки) |
-| `ROOM_NAME` | Имя единственной комнаты (по умолчанию `main`) |
+| Переменная           | Описание                                                                 |
+| -------------------- | ------------------------------------------------------------------------ |
+| `SITE_PASSWORD`      | Общий пароль для входа на сайт                                           |
+| `LIVEKIT_API_KEY`    | API-ключ LiveKit (должен совпадать с docker-compose)                     |
+| `LIVEKIT_API_SECRET` | Секрет LiveKit (должен совпадать с docker-compose)                       |
+| `LIVEKIT_URL`        | Адрес LiveKit WebSocket (`ws://localhost:7880` для локальной разработки) |
+| `ROOM_NAME`          | Имя единственной комнаты (по умолчанию `main`)                           |
 
 ### 4. Запустить LiveKit
 
@@ -93,6 +93,7 @@ npm run dev
 ```
 
 Команда поднимает:
+
 - API-сервер на `http://localhost:3000`
 - Angular-приложение на `http://localhost:4200`
 
@@ -104,14 +105,14 @@ npm run dev
 
 ## Команды
 
-| Команда | Описание |
-|---------|----------|
-| `npm run livekit` | Запустить LiveKit в Docker |
-| `npm run dev` | Запустить API + фронтенд (основная команда для разработки) |
-| `npm run api` | Только API-сервер (порт 3000) |
-| `npm start` | Только Angular (порт 4200, нужен отдельно запущенный API) |
-| `npm run build` | Сборка production |
-| `npm test` | Запуск тестов |
+| Команда           | Описание                                                   |
+| ----------------- | ---------------------------------------------------------- |
+| `npm run livekit` | Запустить LiveKit в Docker                                 |
+| `npm run dev`     | Запустить API + фронтенд (основная команда для разработки) |
+| `npm run api`     | Только API-сервер (порт 3000)                              |
+| `npm start`       | Только Angular (порт 4200, нужен отдельно запущенный API)  |
+| `npm run build`   | Сборка production                                          |
+| `npm test`        | Запуск тестов                                              |
 
 ## Структура проекта
 

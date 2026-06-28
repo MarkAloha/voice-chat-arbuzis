@@ -8,5 +8,5 @@ const port = Number(process.env['API_PORT'] ?? 3000);
 app.use('/api', createApiRouter());
 
 app.listen(port, () => {
-  console.log(`API: http://localhost:${port}/api`);
+    console.log(`API: http://localhost:${port}/api`);
 });
