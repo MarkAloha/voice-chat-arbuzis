@@ -14,6 +14,7 @@ import {
 } from './join-reservations';
 import { createRateLimiter } from './rate-limit';
 import { createParticipantMetadata } from '../shared/participant-colors';
+import { resolveLivekitClientUrl } from './public-host';
 
 const joinRateLimit = createRateLimiter({
     windowMs: 15 * 60 * 1000,
@@ -117,7 +118,7 @@ export function createApiRouter(): Router {
 
             res.json({
                 token: jwt,
-                livekitUrl: config.livekitUrl,
+                livekitUrl: resolveLivekitClientUrl(req, config.livekitUrl),
                 roomName: config.roomName,
                 identity,
                 displayName,

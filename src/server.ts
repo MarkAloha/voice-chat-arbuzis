@@ -7,13 +7,14 @@ import {
 import express from 'express';
 import { join } from 'node:path';
 import { createApiRouter } from './api/routes';
+import { parseSiteHosts } from './api/public-host';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-const siteHost = process.env['SITE_HOST'] ?? 'localhost';
+const allowedHosts = parseSiteHosts(process.env['SITE_HOST']);
 const angularApp = new AngularNodeAppEngine({
-    allowedHosts: [siteHost], // SSR Host header check — совпадает с доменом за Caddy
+    allowedHosts, // SSR Host header check — все домены из SITE_HOST через запятую
     trustProxyHeaders: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto'],
 });
 

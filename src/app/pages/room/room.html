@@ -69,6 +69,16 @@
 
             @if (noiseSuppressionLoading()) {
                 <p class="setting-hint">Загрузка модели шумоподавления…</p>
+            } @else if (
+                micEnabled() &&
+                noiseSuppressionEnabled() &&
+                noiseSuppressionAttempted() &&
+                !noiseSuppressionActive()
+            ) {
+                <p class="setting-hint">
+                    Фильтр не загрузился — микрофон работает без шумоподавления. Обновите страницу или
+                    проверьте консоль браузера (F12).
+                </p>
             }
         </section>
     } @else {

@@ -37,6 +37,8 @@ export class LiveKitService {
     readonly micEnabled = signal(true);
     readonly error = signal<string | null>(null);
     readonly noiseSuppressionLoading = signal(false);
+    readonly noiseSuppressionActive = signal(false);
+    readonly noiseSuppressionAttempted = signal(false);
     readonly localIdentity = signal<string | null>(null);
 
     readonly noiseSuppressionEnabled = this.audioSettings.noiseSuppression;
@@ -241,6 +243,9 @@ export class LiveKitService {
         this.volumeLevels.clear();
         this.localMicVolume = 100;
         this.micAudioProcessor = null;
+        this.noiseSuppressionLoading.set(false);
+        this.noiseSuppressionActive.set(false);
+        this.noiseSuppressionAttempted.set(false);
         this.messages.set([]);
         this.connected.set(false);
         this.connecting.set(false);
@@ -449,11 +454,14 @@ export class LiveKitService {
     }
 
     private buildCaptureOptions() {
+        const useBrowserNs =
+            !this.noiseSuppressionEnabled() ||
+            (this.micAudioProcessor !== null && !this.micAudioProcessor.isNoiseSuppressionActive());
+
         return {
             echoCancellation: true,
             autoGainControl: true,
-            // DTLN или «сырой» mic — browser NS не смешиваем с DTLN.
-            noiseSuppression: false,
+            noiseSuppression: useBrowserNs,
         };
     }
 
@@ -483,6 +491,9 @@ export class LiveKitService {
             await this.micAudioProcessor.destroy();
             this.micAudioProcessor = null;
         }
+
+        this.noiseSuppressionActive.set(false);
+        this.noiseSuppressionAttempted.set(false);
     }
 
     /** LiveKit — один processor на трек; gain и DTLN в MicAudioProcessor. */
@@ -490,6 +501,7 @@ export class LiveKitService {
         const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
         const track = publication?.audioTrack as LocalAudioTrack | undefined;
         if (!track || track.isMuted) {
+            this.noiseSuppressionAttempted.set(false);
             return;
         }
 
@@ -498,8 +510,13 @@ export class LiveKitService {
         }
 
         this.micAudioProcessor.setNoiseSuppressionEnabled(this.noiseSuppressionEnabled());
+        if (this.noiseSuppressionEnabled()) {
+            this.noiseSuppressionAttempted.set(true);
+        }
+
         await track.setProcessor(this.micAudioProcessor as never);
         this.micAudioProcessor.setVolume(this.localMicVolume);
+        this.noiseSuppressionActive.set(this.micAudioProcessor.isNoiseSuppressionActive());
     }
 
     /** Карточка «я» до ответа LiveKit — без пустой сетки на connect. */

@@ -28,6 +28,16 @@
                                 "glob": "**/*",
                                 "input": "public",
                                 "output": "/"
+                            },
+                            {
+                                "glob": "**/*",
+                                "input": "node_modules/@workadventure/noise-suppression/dist/assets",
+                                "output": "/assets"
+                            },
+                            {
+                                "glob": "**/*",
+                                "input": "node_modules/@workadventure/noise-suppression/dist/vendor",
+                                "output": "/vendor"
                             }
                         ],
                         "styles": ["src/styles.scss"],

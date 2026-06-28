@@ -50,6 +50,8 @@ export class RoomComponent implements OnDestroy {
     protected readonly messages = this.liveKit.messages;
     protected readonly noiseSuppressionEnabled = this.liveKit.noiseSuppressionEnabled;
     protected readonly noiseSuppressionLoading = this.liveKit.noiseSuppressionLoading;
+    protected readonly noiseSuppressionActive = this.liveKit.noiseSuppressionActive;
+    protected readonly noiseSuppressionAttempted = this.liveKit.noiseSuppressionAttempted;
     protected messageText = '';
     protected readonly settingsOpen = signal(false);
     protected readonly disconnecting = signal(false);

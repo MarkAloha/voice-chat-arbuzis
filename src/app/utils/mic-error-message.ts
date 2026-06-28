@@ -43,5 +43,16 @@ export function getMicErrorMessage(error: unknown): string {
         return 'Микрофон не найден. Подключите микрофон или проверьте настройки системы.';
     }
 
+    const text = errorText(error);
+    if (
+        text.includes('worklet') ||
+        text.includes('wasm') ||
+        text.includes('tflite') ||
+        text.includes('litert') ||
+        text.includes('noise suppression')
+    ) {
+        return 'Шумоподавление не загрузилось. Микрофон работает без фильтра — попробуйте обновить страницу.';
+    }
+
     return 'Не удалось включить микрофон. Проверьте настройки браузера и попробуйте снова.';
 }

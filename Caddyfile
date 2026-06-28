@@ -1,4 +1,4 @@
-voice-chat-arbuzis.duckdns.org {
+voice-chat-arbuzis.duckdns.org, arbuzis.ru, www.arbuzis.ru, arbuzis.online, www.arbuzis.online {
 	handle_path /livekit/* {
 		reverse_proxy livekit:7880
 	}

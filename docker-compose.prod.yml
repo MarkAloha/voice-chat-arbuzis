@@ -21,7 +21,6 @@ services:
     env_file: .env
     environment:
       PORT: 4000
-      SITE_HOST: voice-chat-arbuzis.duckdns.org
       LIVEKIT_API_URL: http://livekit:7880
     expose:
       - '4000'

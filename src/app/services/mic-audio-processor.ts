@@ -1,11 +1,9 @@
 import { MicGainProcessorOptions, MicGainTrackProcessor } from '../types/mic-gain.types';
+import { createNoiseSuppressionWorklet } from './noise-suppression-loader';
 
-type NoiseWorkletModule = typeof import('@workadventure/noise-suppression/audio-worklet');
-type NoiseWorkletHandle = Awaited<
-    ReturnType<NoiseWorkletModule['createNoiseSuppressionAudioWorklet']>
->;
+const NOISE_SUPPRESSION_WORKLET_URL = '/assets/audio-worklet-processor.js';
 
-/** DTLN (lazy) + gain; один processor на трек LiveKit. */
+/** DTLN (lazy) + gain; при сбое DTLN — fallback на gain через AudioContext LiveKit. */
 export class MicAudioProcessor implements MicGainTrackProcessor {
     readonly name = 'mic-audio';
 
@@ -15,8 +13,13 @@ export class MicAudioProcessor implements MicGainTrackProcessor {
     private source?: MediaStreamAudioSourceNode;
     private destination?: MediaStreamAudioDestinationNode;
     private audioContext?: AudioContext;
-    private workletHandle?: NoiseWorkletHandle;
+    private workletHandle?: Awaited<ReturnType<typeof createNoiseSuppressionWorklet>>;
     private noiseSuppressionEnabled = true;
+    private noiseSuppressionActive = false;
+
+    isNoiseSuppressionActive(): boolean {
+        return this.noiseSuppressionActive;
+    }
 
     setNoiseSuppressionEnabled(enabled: boolean): void {
         this.noiseSuppressionEnabled = enabled;
@@ -25,33 +28,17 @@ export class MicAudioProcessor implements MicGainTrackProcessor {
     async init(options: MicGainProcessorOptions): Promise<void> {
         await this.destroy();
 
-        this.audioContext = new AudioContext({ sampleRate: 16000 });
-        await this.audioContext.resume();
-
-        const source = this.audioContext.createMediaStreamSource(
-            new MediaStream([options.track]),
-        );
-        const gainNode = this.audioContext.createGain();
-        const destination = this.audioContext.createMediaStreamDestination();
-
         if (this.noiseSuppressionEnabled) {
-            const { createNoiseSuppressionAudioWorklet } = await this.loadNoiseSuppression();
-            this.workletHandle = await createNoiseSuppressionAudioWorklet(this.audioContext, {
-                bypassUntilReady: true,
-            });
-            source.connect(this.workletHandle.node);
-            this.workletHandle.node.connect(gainNode);
-            await this.workletHandle.ready;
-        } else {
-            source.connect(gainNode);
+            try {
+                await this.initWithNoiseSuppression(options);
+                return;
+            } catch (error) {
+                console.warn('[MicAudioProcessor] DTLN unavailable, using gain-only fallback.', error);
+                await this.destroy();
+            }
         }
 
-        gainNode.connect(destination);
-
-        this.source = source;
-        this.gainNode = gainNode;
-        this.destination = destination;
-        this.processedTrack = destination.stream.getAudioTracks()[0] ?? undefined;
+        await this.initGainOnly(options);
     }
 
     async restart(options: MicGainProcessorOptions): Promise<void> {
@@ -61,6 +48,7 @@ export class MicAudioProcessor implements MicGainTrackProcessor {
     async destroy(): Promise<void> {
         this.workletHandle?.dispose();
         this.workletHandle = undefined;
+        this.noiseSuppressionActive = false;
 
         this.source?.disconnect();
         this.gainNode?.disconnect();
@@ -88,8 +76,48 @@ export class MicAudioProcessor implements MicGainTrackProcessor {
         this.gainNode.gain.setTargetAtTime(gain, context.currentTime, 0.05);
     }
 
-    /** ~17 MB подгружаются только при первом включении DTLN. */
-    private loadNoiseSuppression(): Promise<NoiseWorkletModule> {
-        return import('@workadventure/noise-suppression/audio-worklet');
+    private async initGainOnly(options: MicGainProcessorOptions): Promise<void> {
+        this.audioContext = options.audioContext;
+        const source = options.audioContext.createMediaStreamSource(
+            new MediaStream([options.track]),
+        );
+        const gainNode = options.audioContext.createGain();
+        const destination = options.audioContext.createMediaStreamDestination();
+
+        source.connect(gainNode);
+        gainNode.connect(destination);
+
+        this.source = source;
+        this.gainNode = gainNode;
+        this.destination = destination;
+        this.processedTrack = destination.stream.getAudioTracks()[0] ?? undefined;
+        this.noiseSuppressionActive = false;
+    }
+
+    private async initWithNoiseSuppression(options: MicGainProcessorOptions): Promise<void> {
+        this.audioContext = new AudioContext({ sampleRate: 16000 });
+        await this.audioContext.resume();
+
+        const source = this.audioContext.createMediaStreamSource(
+            new MediaStream([options.track]),
+        );
+        const gainNode = this.audioContext.createGain();
+        const destination = this.audioContext.createMediaStreamDestination();
+
+        this.workletHandle = await createNoiseSuppressionWorklet(this.audioContext, {
+            moduleUrl: NOISE_SUPPRESSION_WORKLET_URL,
+            bypassUntilReady: true,
+            readyTimeoutMs: 90_000,
+        });
+        source.connect(this.workletHandle.node);
+        this.workletHandle.node.connect(gainNode);
+        gainNode.connect(destination);
+        await this.workletHandle.ready;
+
+        this.source = source;
+        this.gainNode = gainNode;
+        this.destination = destination;
+        this.processedTrack = destination.stream.getAudioTracks()[0] ?? undefined;
+        this.noiseSuppressionActive = true;
     }
 }
