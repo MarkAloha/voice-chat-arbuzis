@@ -1,6 +1,7 @@
 import { Component, OnDestroy, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MicIconComponent } from '../../components/mic-icon/mic-icon';
 import { JoinService } from '../../services/join.service';
 import { LiveKitService, ParticipantView } from '../../services/livekit.service';
@@ -14,6 +15,7 @@ import { LiveKitService, ParticipantView } from '../../services/livekit.service'
 export class RoomComponent implements OnDestroy {
   private readonly joinService = inject(JoinService);
   private readonly liveKit = inject(LiveKitService);
+  private readonly router = inject(Router);
 
   protected readonly participants = this.liveKit.participants;
   protected readonly connected = this.liveKit.connected;
@@ -39,6 +41,12 @@ export class RoomComponent implements OnDestroy {
 
   protected toggleMic(): void {
     void this.liveKit.toggleMic();
+  }
+
+  protected leaveRoom(): void {
+    this.liveKit.disconnect();
+    this.joinService.clear();
+    void this.router.navigateByUrl('/login');
   }
 
   protected setVolume(participant: ParticipantView, value: number): void {

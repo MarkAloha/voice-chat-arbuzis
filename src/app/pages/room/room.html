@@ -7,9 +7,20 @@
         <p>Комната · main</p>
       </div>
     </div>
-    <span class="status" [class.online]="connected()">
-      {{ connecting() ? 'Подключение…' : connected() ? 'Подключено' : 'Отключено' }}
-    </span>
+    @if (connected()) {
+      <button
+        type="button"
+        class="status online status-btn"
+        (click)="leaveRoom()"
+        aria-label="Выйти из комнаты"
+      >
+        Подключено
+      </button>
+    } @else {
+      <span class="status" [class.online]="connected()">
+        {{ connecting() ? 'Подключение…' : 'Отключено' }}
+      </span>
+    }
   </header>
 
   @if (error()) {
@@ -31,10 +42,16 @@
               [class.local]="participant.isLocal"
             >
               <div class="avatar" [class.speaking]="participant.isSpeaking">
-                {{ initials(participant.displayName) }}
+                @if (participant.isLocal) {
+                  Я
+                } @else {
+                  {{ initials(participant.displayName) }}
+                }
               </div>
 
-              <span class="name">{{ participant.displayName }}</span>
+              @if (!participant.isLocal) {
+                <span class="name">{{ participant.displayName }}</span>
+              }
 
               @if (participant.isLocal) {
                 <button
