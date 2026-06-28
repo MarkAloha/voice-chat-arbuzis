@@ -1,6 +1,6 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { pickRandomNickname } from '../../data/random-nicknames';
 import { JoinError } from '../../models/join.model';
 import { AuthApiService } from '../../services/auth-api.service';
@@ -15,7 +15,7 @@ function delay(ms: number): Promise<void> {
 
 @Component({
     selector: 'app-login',
-    imports: [FormsModule],
+    imports: [FormsModule, RouterLink],
     templateUrl: './login.html',
     styleUrl: './login.scss',
 })
@@ -83,7 +83,7 @@ export class LoginComponent implements OnDestroy {
                 password: this.password,
                 nickname: this.nickname,
             });
-            this.joinService.setSession(session);
+            this.joinService.setSession(session, this.password);
             await this.router.navigateByUrl('/room');
         } catch (err) {
             if (err instanceof JoinError && err.code === 'room_full') {

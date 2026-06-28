@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { AccessToken } from 'livekit-server-sdk';
+import type { Request } from 'express';
 import { Router, json } from 'express';
 import { getConfig } from './config';
 import { ensureRoomParticipantLimit, listRoomParticipants } from './livekit-room';
@@ -13,7 +13,12 @@ import {
     syncReservationsWithParticipants,
 } from './join-reservations';
 import { createRateLimiter } from './rate-limit';
-import { createParticipantMetadata } from '../shared/participant-colors';
+import { createParticipantToken, isValidParticipantIdentity } from './join-token';
+import {
+    issueResumeCredential,
+    revokeResumeCredential,
+    verifyResumeCredential,
+} from './join-resume-credentials';
 import { resolveLivekitClientUrl } from './public-host';
 
 const joinRateLimit = createRateLimiter({
@@ -32,6 +37,26 @@ function makeIdentity(nickname: string): string {
             .replace(/^-|-$/g, '') || 'guest';
     const suffix = randomBytes(2).toString('hex');
     return `${slug}-${suffix}`;
+}
+
+function buildJoinResponse(
+    req: Request,
+    identity: string,
+    displayName: string,
+    colorIndex: number,
+    token: string,
+    resumeSecret: string,
+) {
+    const config = getConfig();
+    return {
+        token,
+        livekitUrl: resolveLivekitClientUrl(req, config.livekitUrl),
+        roomName: config.roomName,
+        identity,
+        displayName,
+        colorIndex,
+        resumeSecret,
+    };
 }
 
 export function createApiRouter(): Router {
@@ -99,31 +124,91 @@ export function createApiRouter(): Router {
 
             reserveJoinSlot(identity, displayName);
 
-            const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
-                identity,
-                name: displayName,
-                metadata: createParticipantMetadata(colorIndex),
-            });
+            const resumeSecret = issueResumeCredential(identity, displayName, colorIndex);
+            const jwt = await createParticipantToken(identity, displayName, colorIndex);
 
-            token.addGrant({
-                roomJoin: true,
-                room: config.roomName,
-                canPublish: true,
-                canSubscribe: true,
-                canPublishData: true,
-                canUpdateOwnMetadata: true,
-            });
+            res.json(buildJoinResponse(req, identity, displayName, colorIndex, jwt, resumeSecret));
+        });
+    });
 
-            const jwt = await token.toJwt();
+    /** Новый JWT с тем же identity — после блокировки экрана или истечения токена. */
+    router.post('/join/resume', joinRateLimit, async (req, res) => {
+        await withJoinLock(async () => {
+            let config;
+            try {
+                config = getConfig();
+            } catch {
+                res.status(500).json({ error: 'Сервер не настроен. Обратитесь к администратору.' });
+                return;
+            }
 
-            res.json({
-                token: jwt,
-                livekitUrl: resolveLivekitClientUrl(req, config.livekitUrl),
-                roomName: config.roomName,
-                identity,
-                displayName,
-                colorIndex,
-            });
+            const password = req.body?.password as string | undefined;
+            const identity = req.body?.identity as string | undefined;
+            const resumeSecret = req.body?.resumeSecret as string | undefined;
+
+            if (!password || !identity?.trim() || !resumeSecret?.trim()) {
+                res.status(400).json({ error: 'Укажите пароль и данные сессии.' });
+                return;
+            }
+
+            if (password !== config.sitePassword) {
+                res.status(401).json({ error: 'Неверный пароль.' });
+                return;
+            }
+
+            const trimmedIdentity = identity.trim();
+            if (!isValidParticipantIdentity(trimmedIdentity)) {
+                res.status(400).json({ error: 'Некорректная сессия. Войдите заново.' });
+                return;
+            }
+
+            const credential = verifyResumeCredential(trimmedIdentity, resumeSecret.trim());
+            if (!credential) {
+                res.status(403).json({ error: 'Сессия истекла. Войдите заново.' });
+                return;
+            }
+
+            let participants;
+            try {
+                participants = await listRoomParticipants();
+            } catch {
+                res.status(503).json({ error: 'Не удалось проверить комнату. Попробуйте позже.' });
+                return;
+            }
+
+            syncReservationsWithParticipants(participants);
+
+            const alreadyConnected = participants.some(
+                (participant) => participant.identity === trimmedIdentity,
+            );
+
+            if (
+                !alreadyConnected &&
+                getEffectiveParticipantCount(participants.length) >= config.roomMaxParticipants
+            ) {
+                res.status(503).json({
+                    error: 'Комната заполнена',
+                    code: 'room_full',
+                });
+                return;
+            }
+
+            const jwt = await createParticipantToken(
+                trimmedIdentity,
+                credential.displayName,
+                credential.colorIndex,
+            );
+
+            res.json(
+                buildJoinResponse(
+                    req,
+                    trimmedIdentity,
+                    credential.displayName,
+                    credential.colorIndex,
+                    jwt,
+                    resumeSecret.trim(),
+                ),
+            );
         });
     });
 
@@ -136,6 +221,7 @@ export function createApiRouter(): Router {
         }
 
         releaseJoinSlot(identity.trim());
+        revokeResumeCredential(identity.trim());
         res.status(204).end();
     });
 

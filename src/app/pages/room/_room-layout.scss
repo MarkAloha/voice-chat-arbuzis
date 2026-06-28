@@ -72,6 +72,12 @@ h2 {
     color: #dcfce7;
 }
 
+.status.reconnecting,
+button.status-btn.reconnecting {
+    background: rgba(180, 83, 9, 0.85);
+    color: #fef3c7;
+}
+
 button.status-btn {
     border: none;
     font: inherit;

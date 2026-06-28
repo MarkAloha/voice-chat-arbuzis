@@ -11,17 +11,28 @@
             <button
                 type="button"
                 class="status status-btn"
-                [class.online]="!disconnecting()"
+                [class.online]="!disconnecting() && !reconnecting()"
+                [class.reconnecting]="reconnecting()"
                 [class.disconnecting]="disconnecting()"
                 (click)="leaveRoom()"
                 [disabled]="disconnecting()"
                 aria-label="Выйти из комнаты"
             >
-                {{ disconnecting() ? 'Отключение…' : 'Подключено' }}
+                @if (disconnecting()) {
+                    Отключение…
+                } @else if (reconnecting()) {
+                    Переподключение…
+                } @else {
+                    Подключено
+                }
             </button>
         } @else {
-            <span class="status" [class.online]="connected()">
-                {{ connecting() ? 'Подключение…' : 'Отключено' }}
+            <span class="status" [class.online]="connected()" [class.reconnecting]="reconnecting()">
+                @if (reconnecting()) {
+                    Переподключение…
+                } @else {
+                    {{ connecting() ? 'Подключение…' : 'Отключено' }}
+                }
             </span>
         }
     </header>

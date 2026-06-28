@@ -193,3 +193,18 @@ input:focus {
     font-size: 0.9rem;
     line-height: 1.35rem;
 }
+
+.roadmap-link {
+    margin: 1.25rem 0 0;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.roadmap-link a {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.roadmap-link a:hover {
+    color: #e2e8f0;
+}

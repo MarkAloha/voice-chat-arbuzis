@@ -17,6 +17,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/room/room').then((m) => m.RoomComponent),
     },
     {
+        path: 'roadmap',
+        loadComponent: () => import('./pages/roadmap/roadmap').then((m) => m.RoadmapComponent),
+    },
+    {
         path: '**',
         redirectTo: 'login',
     },

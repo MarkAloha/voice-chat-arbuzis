@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import {
+    ConnectionState,
     LocalAudioTrack,
     Participant,
     RemoteParticipant,
@@ -18,15 +19,28 @@ import { getPlayerColorHex, readColorIndex } from '../../shared/participant-colo
 
 const CHAT_TOPIC = 'chat-message';
 const CHAT_DELETE_TOPIC = 'chat-delete';
+const MAX_RECONNECT_DELAY_MS = 10_000;
+const MAX_RECONNECT_ATTEMPTS = 8;
+
+export type SessionRefreshHandler = () => Promise<JoinSession | null>;
+export type ReconnectFailedHandler = () => void;
 
 @Injectable({ providedIn: 'root' })
 export class LiveKitService {
     private readonly audioSettings = inject(AudioSettingsService);
     private room: Room | null = null;
+    private activeSession: JoinSession | null = null;
+    private sessionRefreshHandler: SessionRefreshHandler | null = null;
+    private reconnectFailedHandler: ReconnectFailedHandler | null = null;
+    private intentionalLeave = false;
+    private reconnectAttempt = 0;
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private reconnectInFlight: Promise<void> | null = null;
     private readonly volumeLevels = new Map<string, number>();
     private localMicVolume = 100;
     private micAudioProcessor: MicAudioProcessor | null = null;
     private localColorIndex = 0;
+    private micWasEnabledBeforeDisconnect = true;
     private readonly textEncoder = new TextEncoder();
     private readonly textDecoder = new TextDecoder();
 
@@ -34,6 +48,7 @@ export class LiveKitService {
     readonly messages = signal<ChatMessage[]>([]);
     readonly connected = signal(false);
     readonly connecting = signal(false);
+    readonly reconnecting = signal(false);
     readonly micEnabled = signal(true);
     readonly error = signal<string | null>(null);
     readonly noiseSuppressionLoading = signal(false);
@@ -43,89 +58,109 @@ export class LiveKitService {
 
     readonly noiseSuppressionEnabled = this.audioSettings.noiseSuppression;
 
-    /** Подключение к комнате; микрофон отдельно — отказ в mic не рвёт сессию. */
-    async connect(session: JoinSession): Promise<void> {
-        if (this.room) {
+    registerSessionRefreshHandler(handler: SessionRefreshHandler | null): void {
+        this.sessionRefreshHandler = handler;
+    }
+
+    registerReconnectFailedHandler(handler: ReconnectFailedHandler | null): void {
+        this.reconnectFailedHandler = handler;
+    }
+
+    isIntentionalLeave(): boolean {
+        return this.intentionalLeave;
+    }
+
+    /** Уход со страницы комнаты без явного «Выйти» — рвём WebRTC, но не помечаем как logout. */
+    abandonConnection(): void {
+        if (this.intentionalLeave) {
             return;
         }
 
-        this.connecting.set(true);
-        this.error.set(null);
+        this.clearReconnectTimer();
+        this.reconnectInFlight = null;
+        this.reconnectAttempt = 0;
+        this.reconnecting.set(false);
+        this.activeSession = null;
+        void this.teardownRoomMedia();
+    }
+
+    /** Подключение к комнате; микрофон отдельно — отказ в mic не рвёт сессию. */
+    async connect(session: JoinSession): Promise<void> {
+        this.intentionalLeave = false;
+        this.activeSession = session;
         this.localIdentity.set(session.identity);
         this.localColorIndex = session.colorIndex;
         this.setOptimisticLocalParticipant(session);
 
-        const room = new Room({
-            adaptiveStream: false,
-            dynacast: false,
-            webAudioMix: true, // per-participant setVolume() для удалённых участников
-        });
+        if (!this.room) {
+            this.room = this.createRoom();
+        }
 
-        room.on(RoomEvent.ParticipantConnected, (participant) => {
-            this.applyRemoteVolume(participant);
-            this.syncParticipants();
-        })
-            .on(RoomEvent.ParticipantDisconnected, (participant) => {
-                this.volumeLevels.delete(participant.identity);
-                this.syncParticipants();
-            })
-            .on(RoomEvent.TrackMuted, () => this.syncParticipants())
-            .on(RoomEvent.TrackUnmuted, () => this.syncParticipants())
-            .on(RoomEvent.TrackPublished, () => this.syncParticipants())
-            .on(RoomEvent.TrackUnpublished, () => this.syncParticipants())
-            .on(RoomEvent.ParticipantMetadataChanged, () => this.syncParticipants())
-            .on(RoomEvent.ActiveSpeakersChanged, () => this.syncParticipants())
-            .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
-                this.attachAudioTrack(track, participant);
-                this.syncParticipants();
-            })
-            .on(RoomEvent.TrackUnsubscribed, (track) => {
-                track.detach();
-            })
-            .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
-                if (topic === CHAT_TOPIC) {
-                    this.handleChatMessage(payload, participant);
-                    return;
-                }
+        if (this.room.state === ConnectionState.Connected) {
+            if (this.room.localParticipant.identity === session.identity) {
+                this.connected.set(true);
+                return;
+            }
 
-                if (topic === CHAT_DELETE_TOPIC) {
-                    this.handleChatDelete(payload, participant);
-                }
-            })
-            .on(RoomEvent.Disconnected, () => {
-                this.connected.set(false);
-                this.syncParticipants();
-            });
+            await this.teardownRoomMedia();
+            this.room = this.createRoom();
+        }
+
+        this.connecting.set(true);
+        this.error.set(null);
 
         try {
-            await room.connect(session.livekitUrl, session.token);
-            await room.startAudio();
-
-            this.room = room;
-            this.connected.set(true);
-            this.localIdentity.set(room.localParticipant.identity);
-
-            try {
-                await this.enableLocalMicrophone(room);
-            } catch {
-                // Mic error message is already shown; user can still listen and chat.
-            }
-
-            for (const participant of room.remoteParticipants.values()) {
-                this.applyRemoteVolume(participant);
-            }
-
-            this.syncParticipants();
+            await this.room.connect(session.livekitUrl, session.token);
+            await this.finishConnectedSession(this.room);
         } catch (err) {
             const message =
                 err instanceof Error ? err.message : 'Не удалось подключиться к комнате.';
             this.error.set(message);
             this.participants.set([]);
-            room.disconnect();
+            await this.teardownRoomMedia();
             throw err;
         } finally {
             this.connecting.set(false);
         }
+    }
+
+    /** Явный выход — не пытаться переподключаться. */
+    disconnect(): void {
+        this.intentionalLeave = true;
+        this.clearReconnectTimer();
+        this.reconnectInFlight = null;
+        this.reconnectAttempt = 0;
+        this.reconnecting.set(false);
+        this.activeSession = null;
+
+        void this.teardownRoomMedia();
+        this.volumeLevels.clear();
+        this.localMicVolume = 100;
+        this.micAudioProcessor = null;
+        this.noiseSuppressionLoading.set(false);
+        this.noiseSuppressionActive.set(false);
+        this.noiseSuppressionAttempted.set(false);
+        this.messages.set([]);
+        this.connected.set(false);
+        this.connecting.set(false);
+        this.micEnabled.set(true);
+        this.localIdentity.set(null);
+        this.localColorIndex = 0;
+        this.participants.set([]);
+    }
+
+    /** Вкладка снова видима — пробуем восстановить соединение и звук. */
+    onPageVisible(): void {
+        if (this.intentionalLeave || !this.activeSession) {
+            return;
+        }
+
+        if (this.room?.state === ConnectionState.Connected) {
+            void this.resumeMediaAfterBackground();
+            return;
+        }
+
+        void this.tryReconnect();
     }
 
     async toggleMic(): Promise<void> {
@@ -237,22 +272,256 @@ export class LiveKitService {
         await this.rebuildMicProcessor();
     }
 
-    disconnect(): void {
-        this.room?.disconnect();
-        this.room = null;
-        this.volumeLevels.clear();
-        this.localMicVolume = 100;
-        this.micAudioProcessor = null;
+    private createRoom(): Room {
+        const room = new Room({
+            adaptiveStream: false,
+            dynacast: false,
+            webAudioMix: true,
+            disconnectOnPageLeave: false,
+        });
+
+        room.on(RoomEvent.ParticipantConnected, (participant) => {
+            this.applyRemoteVolume(participant);
+            this.syncParticipants();
+        })
+            .on(RoomEvent.ParticipantDisconnected, (participant) => {
+                this.volumeLevels.delete(participant.identity);
+                this.syncParticipants();
+            })
+            .on(RoomEvent.TrackMuted, () => this.syncParticipants())
+            .on(RoomEvent.TrackUnmuted, () => this.syncParticipants())
+            .on(RoomEvent.TrackPublished, () => this.syncParticipants())
+            .on(RoomEvent.TrackUnpublished, () => this.syncParticipants())
+            .on(RoomEvent.ParticipantMetadataChanged, () => this.syncParticipants())
+            .on(RoomEvent.ActiveSpeakersChanged, () => this.syncParticipants())
+            .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
+                this.attachAudioTrack(track, participant);
+                this.syncParticipants();
+            })
+            .on(RoomEvent.TrackUnsubscribed, (track) => {
+                track.detach();
+            })
+            .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+                if (topic === CHAT_TOPIC) {
+                    this.handleChatMessage(payload, participant);
+                    return;
+                }
+
+                if (topic === CHAT_DELETE_TOPIC) {
+                    this.handleChatDelete(payload, participant);
+                }
+            })
+            .on(RoomEvent.Reconnecting, () => {
+                this.reconnecting.set(true);
+                this.connected.set(false);
+            })
+            .on(RoomEvent.Reconnected, () => {
+                this.reconnecting.set(false);
+                this.connected.set(true);
+                this.reconnectAttempt = 0;
+                void this.resumeMediaAfterBackground();
+            })
+            .on(RoomEvent.Disconnected, () => {
+                this.micWasEnabledBeforeDisconnect = this.micEnabled();
+                this.connected.set(false);
+                this.syncParticipants();
+
+                if (!this.intentionalLeave) {
+                    this.scheduleReconnect();
+                }
+            });
+
+        return room;
+    }
+
+    private async finishConnectedSession(room: Room): Promise<void> {
+        await room.startAudio();
+        this.connected.set(true);
+        this.reconnecting.set(false);
+        this.reconnectAttempt = 0;
+        this.localIdentity.set(room.localParticipant.identity);
+
+        try {
+            await this.enableLocalMicrophone(room);
+        } catch {
+            // Mic error message is already shown; user can still listen and chat.
+        }
+
+        for (const participant of room.remoteParticipants.values()) {
+            this.applyRemoteVolume(participant);
+        }
+
+        this.syncParticipants();
+    }
+
+    private scheduleReconnect(): void {
+        this.clearReconnectTimer();
+
+        if (this.intentionalLeave || !this.activeSession) {
+            return;
+        }
+
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+            return;
+        }
+
+        const delay = Math.min(1000 * 2 ** this.reconnectAttempt, MAX_RECONNECT_DELAY_MS);
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            void this.tryReconnect();
+        }, delay);
+    }
+
+    private clearReconnectTimer(): void {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+    }
+
+    private async tryReconnect(): Promise<void> {
+        if (this.intentionalLeave || !this.activeSession) {
+            return;
+        }
+
+        if (this.reconnectInFlight) {
+            await this.reconnectInFlight;
+            return;
+        }
+
+        this.reconnectInFlight = this.performReconnect();
+        try {
+            await this.reconnectInFlight;
+        } finally {
+            this.reconnectInFlight = null;
+        }
+    }
+
+    private async performReconnect(): Promise<void> {
+        let session = this.activeSession;
+        if (!session || this.intentionalLeave) {
+            return;
+        }
+
+        this.reconnecting.set(true);
+        this.reconnectAttempt += 1;
+        this.error.set(null);
+
+        if (!this.room) {
+            this.room = this.createRoom();
+        }
+
+        try {
+            if (this.room.state !== ConnectionState.Connected) {
+                await this.room.connect(session.livekitUrl, session.token);
+            }
+
+            await this.finishConnectedSession(this.room);
+            return;
+        } catch {
+            // Пробуем обновить JWT и подключиться снова.
+        }
+
+        if (this.sessionRefreshHandler) {
+            const refreshed = await this.sessionRefreshHandler();
+            if (refreshed) {
+                session = refreshed;
+                this.activeSession = refreshed;
+                this.localIdentity.set(refreshed.identity);
+                this.localColorIndex = refreshed.colorIndex;
+
+                try {
+                    if (this.room.state !== ConnectionState.Disconnected) {
+                        await this.room.disconnect(false);
+                    }
+                    await this.room.connect(refreshed.livekitUrl, refreshed.token);
+                    await this.finishConnectedSession(this.room);
+                    return;
+                } catch (err) {
+                    const message =
+                        err instanceof Error
+                            ? err.message
+                            : 'Не удалось переподключиться к комнате.';
+                    this.error.set(message);
+                }
+            } else if (this.reconnectAttempt >= 2) {
+                this.handleReconnectGiveUp();
+                return;
+            }
+        } else if (this.reconnectAttempt >= 2) {
+            this.handleReconnectGiveUp();
+            return;
+        }
+
+        if (this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+            this.handleReconnectGiveUp();
+            return;
+        }
+
+        this.reconnecting.set(false);
+        this.scheduleReconnect();
+    }
+
+    private handleReconnectGiveUp(): void {
+        this.clearReconnectTimer();
+        this.reconnecting.set(false);
+        this.error.set('Не удалось переподключиться. Войдите заново.');
+        this.activeSession = null;
+        void this.teardownRoomMedia();
+        this.reconnectFailedHandler?.();
+    }
+
+    private async teardownRoomMedia(): Promise<void> {
+        if (this.micAudioProcessor) {
+            await this.micAudioProcessor.destroy();
+            this.micAudioProcessor = null;
+        }
+
         this.noiseSuppressionLoading.set(false);
         this.noiseSuppressionActive.set(false);
         this.noiseSuppressionAttempted.set(false);
-        this.messages.set([]);
+
+        const room = this.room;
+        this.room = null;
+
+        if (room) {
+            try {
+                await room.disconnect();
+            } catch {
+                // ignore
+            }
+        }
+
         this.connected.set(false);
         this.connecting.set(false);
-        this.micEnabled.set(true);
-        this.localIdentity.set(null);
-        this.localColorIndex = 0;
         this.participants.set([]);
+    }
+
+    private async resumeMediaAfterBackground(): Promise<void> {
+        const room = this.room;
+        if (!room || room.state !== ConnectionState.Connected) {
+            return;
+        }
+
+        try {
+            await room.startAudio();
+        } catch {
+            // ignore
+        }
+
+        if (this.micWasEnabledBeforeDisconnect || this.micEnabled()) {
+            try {
+                await this.enableLocalMicrophone(room);
+            } catch {
+                // Mic may stay blocked until user taps — error already set in enableLocalMicrophone.
+            }
+        }
+
+        for (const participant of room.remoteParticipants.values()) {
+            this.applyRemoteVolume(participant);
+        }
+
+        this.syncParticipants();
     }
 
     private attachAudioTrack(track: RemoteTrack, participant: Participant): void {
@@ -280,7 +549,6 @@ export class LiveKitService {
             return;
         }
 
-        // Свои data-сообщения уже показаны optimistically — echo не дублируем.
         if (participant.identity === room.localParticipant.identity) {
             return;
         }
@@ -338,7 +606,6 @@ export class LiveKitService {
         }
     }
 
-    /** Жёсткий потолок истории — data channel не хранит сообщения на сервере. */
     private addMessage(message: ChatMessage): void {
         this.messages.update((messages) => {
             if (messages.some((item) => item.id === message.id)) {
@@ -373,7 +640,7 @@ export class LiveKitService {
 
         views.sort((a, b) => {
             if (a.isLocal) {
-                return -1; // локальный участник всегда первым в сетке
+                return -1;
             }
             if (b.isLocal) {
                 return 1;
@@ -415,7 +682,6 @@ export class LiveKitService {
             return metadataColor;
         }
 
-        // metadata есть не у всех (старые клиенты) — тогда стабильный цвет от identity.
         let hash = 0;
         for (const char of participant.identity) {
             hash = (hash + char.charCodeAt(0)) % 5;
@@ -498,7 +764,6 @@ export class LiveKitService {
         this.noiseSuppressionAttempted.set(false);
     }
 
-    /** LiveKit — один processor на трек; gain и DTLN в MicAudioProcessor. */
     private async setupLocalMicProcessor(room: Room): Promise<void> {
         const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
         const track = publication?.audioTrack as LocalAudioTrack | undefined;
@@ -521,7 +786,6 @@ export class LiveKitService {
         this.noiseSuppressionActive.set(this.micAudioProcessor.isNoiseSuppressionActive());
     }
 
-    /** Карточка «я» до ответа LiveKit — без пустой сетки на connect. */
     private setOptimisticLocalParticipant(session: JoinSession): void {
         this.participants.set([
             {

@@ -6,6 +6,8 @@ import { MicIconComponent } from '../../components/mic-icon/mic-icon';
 import { JoinService } from '../../services/join.service';
 import { AuthApiService } from '../../services/auth-api.service';
 import { LiveKitService } from '../../services/livekit.service';
+import { WakeLockService } from '../../services/wake-lock.service';
+import { JoinSession } from '../../models/join.model';
 import { ParticipantView } from '../../models/participant.model';
 import { getPlayerColorHex } from '../../../shared/participant-colors';
 
@@ -19,6 +21,7 @@ export class RoomComponent implements OnDestroy {
     private readonly joinService = inject(JoinService);
     private readonly authApi = inject(AuthApiService);
     private readonly liveKit = inject(LiveKitService);
+    private readonly wakeLock = inject(WakeLockService);
     private readonly router = inject(Router);
 
     protected readonly joinSession = this.joinService.session;
@@ -37,6 +40,7 @@ export class RoomComponent implements OnDestroy {
     protected readonly participants = this.liveKit.participants;
     protected readonly connected = this.liveKit.connected;
     protected readonly connecting = this.liveKit.connecting;
+    protected readonly reconnecting = this.liveKit.reconnecting;
     protected readonly micEnabled = this.liveKit.micEnabled;
     protected readonly error = this.liveKit.error;
     protected readonly localPlayerColor = computed(() => {
@@ -57,6 +61,12 @@ export class RoomComponent implements OnDestroy {
     protected readonly disconnecting = signal(false);
     private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
     private leaveTimeout: ReturnType<typeof setTimeout> | null = null;
+    private readonly visibilityListener = (): void => {
+        if (document.visibilityState === 'visible') {
+            void this.wakeLock.reacquireIfVisible();
+            this.liveKit.onPageVisible();
+        }
+    };
 
     constructor() {
         const session = this.joinService.session();
@@ -64,14 +74,26 @@ export class RoomComponent implements OnDestroy {
             return;
         }
 
+        this.liveKit.registerSessionRefreshHandler(() => this.refreshSession());
+        this.liveKit.registerReconnectFailedHandler(() => this.handleReconnectFailed());
+
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', this.visibilityListener);
+        }
+
         void this.liveKit.connect(session).catch(() => {
-            // JWT уже зарезервировал слот — отдаём его обратно, если WebRTC не поднялся.
             void this.authApi.releaseJoin(session.identity).catch(() => undefined);
         });
 
         effect(() => {
             this.messages();
             queueMicrotask(() => this.scrollChatToBottom());
+        });
+
+        effect(() => {
+            if (this.connected()) {
+                void this.wakeLock.acquire();
+            }
         });
     }
 
@@ -80,8 +102,18 @@ export class RoomComponent implements OnDestroy {
             clearTimeout(this.leaveTimeout);
         }
 
-        this.liveKit.disconnect();
-        this.joinService.clear();
+        this.liveKit.registerSessionRefreshHandler(null);
+        this.liveKit.registerReconnectFailedHandler(null);
+
+        if (typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this.visibilityListener);
+        }
+
+        void this.wakeLock.release();
+
+        if (!this.liveKit.isIntentionalLeave()) {
+            this.liveKit.abandonConnection();
+        }
     }
 
     protected toggleMic(): void {
@@ -107,9 +139,13 @@ export class RoomComponent implements OnDestroy {
 
         this.disconnecting.set(true);
 
-        // Короткая пауза — пользователь видит «Отключение…» до редиректа на login.
         this.leaveTimeout = setTimeout(() => {
             this.leaveTimeout = null;
+            void this.wakeLock.release();
+            const identity = this.joinService.session()?.identity;
+            if (identity) {
+                void this.authApi.releaseJoin(identity).catch(() => undefined);
+            }
             this.liveKit.disconnect();
             this.joinService.clear();
             void this.router.navigateByUrl('/login');
@@ -146,6 +182,35 @@ export class RoomComponent implements OnDestroy {
 
     protected deleteMessage(messageId: string): void {
         void this.liveKit.deleteMessage(messageId);
+    }
+
+    private async refreshSession(): Promise<JoinSession | null> {
+        const session = this.joinService.session();
+        const password = this.joinService.getPassword();
+        if (!session?.resumeSecret || !password) {
+            return null;
+        }
+
+        try {
+            const refreshed = await this.authApi.resumeJoin({
+                password,
+                identity: session.identity,
+                resumeSecret: session.resumeSecret,
+            });
+            this.joinService.updateSession(refreshed);
+            return refreshed;
+        } catch {
+            return null;
+        }
+    }
+
+    private handleReconnectFailed(): void {
+        const identity = this.joinService.session()?.identity;
+        if (identity) {
+            void this.authApi.releaseJoin(identity).catch(() => undefined);
+        }
+        this.joinService.clear();
+        void this.router.navigateByUrl('/login');
     }
 
     private scrollChatToBottom(): void {

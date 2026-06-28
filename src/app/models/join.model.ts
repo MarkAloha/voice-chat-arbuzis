@@ -5,11 +5,18 @@ export interface JoinSession {
     identity: string;
     displayName: string;
     colorIndex: number;
+    resumeSecret: string;
 }
 
 export interface JoinRequest {
     password: string;
     nickname: string;
+}
+
+export interface ResumeJoinRequest {
+    password: string;
+    identity: string;
+    resumeSecret: string;
 }
 
 export interface JoinResponse extends JoinSession {}
