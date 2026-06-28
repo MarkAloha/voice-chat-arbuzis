@@ -5,6 +5,7 @@ import { getConfig } from './config';
 import { listRoomParticipants } from './livekit-room';
 import { assignColorIndex, resolveUniqueDisplayName } from './join-utils';
 import { createRateLimiter } from './rate-limit';
+import { createParticipantMetadata } from '../shared/participant-colors';
 
 const joinRateLimit = createRateLimiter({
     windowMs: 15 * 60 * 1000,
@@ -77,6 +78,7 @@ export function createApiRouter(): Router {
         const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
             identity,
             name: displayName,
+            metadata: createParticipantMetadata(colorIndex),
         });
 
         token.addGrant({
@@ -84,6 +86,8 @@ export function createApiRouter(): Router {
             room: config.roomName,
             canPublish: true,
             canSubscribe: true,
+            canPublishData: true,
+            canUpdateOwnMetadata: true,
         });
 
         const jwt = await token.toJwt();

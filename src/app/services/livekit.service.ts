@@ -12,11 +12,7 @@ import { JoinSession } from '../models/join.model';
 import { ChatMessage } from '../models/chat.model';
 import { ParticipantView } from '../models/participant.model';
 import { MicGainProcessor } from './mic-gain-processor';
-import {
-    createParticipantMetadata,
-    getPlayerColorHex,
-    readColorIndex,
-} from '../../shared/participant-colors';
+import { getPlayerColorHex, readColorIndex } from '../../shared/participant-colors';
 
 const CHAT_TOPIC = 'chat-message';
 const CHAT_DELETE_TOPIC = 'chat-delete';
@@ -96,7 +92,6 @@ export class LiveKitService {
             await room.connect(session.livekitUrl, session.token);
             await room.startAudio();
             await room.localParticipant.setMicrophoneEnabled(true);
-            await room.localParticipant.setMetadata(createParticipantMetadata(session.colorIndex));
             await this.setupLocalMicGain(room);
 
             this.room = room;
