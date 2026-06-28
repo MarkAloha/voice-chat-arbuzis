@@ -43,6 +43,7 @@
                             class="participant-card"
                             [class.speaking]="participant.isSpeaking"
                             [class.local]="participant.isLocal"
+                            [style.--player-color]="participant.color"
                         >
                             @if (participant.isLocal) {
                                 <button
@@ -50,6 +51,7 @@
                                     class="avatar mic-avatar"
                                     [class.speaking]="participant.isSpeaking"
                                     [class.enabled]="micEnabled()"
+                                    [style.--player-color]="participant.color"
                                     (click)="toggleMic()"
                                     [disabled]="!connected()"
                                     [attr.aria-label]="
@@ -59,13 +61,19 @@
                                     <app-mic-icon [enabled]="micEnabled()" />
                                 </button>
                             } @else {
-                                <div class="avatar" [class.speaking]="participant.isSpeaking">
+                                <div
+                                    class="avatar"
+                                    [class.speaking]="participant.isSpeaking"
+                                    [style.--player-color]="participant.color"
+                                >
                                     {{ initials(participant.displayName) }}
                                 </div>
                             }
 
                             @if (!participant.isLocal) {
-                                <span class="name">{{ participant.displayName }}</span>
+                                <span class="name" [style.color]="participant.color">{{
+                                    participant.displayName
+                                }}</span>
                             }
 
                             @if (!participant.isLocal) {

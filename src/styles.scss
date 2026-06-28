@@ -133,7 +133,7 @@ app-room .participant-card {
     padding: 1rem 0.85rem;
     border-radius: 16px;
     background: var(--surface-raised);
-    border: 1px solid var(--border-subtle);
+    border: 1px solid color-mix(in srgb, var(--player-color, var(--border-subtle)) 35%, var(--border-subtle));
     text-align: center;
 }
 
@@ -149,8 +149,8 @@ app-room .avatar {
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    background: #1e293b;
-    border: 2px solid #334155;
+    background: color-mix(in srgb, var(--player-color, #334155) 16%, #1e293b);
+    border: 2px solid var(--player-color, #334155);
     font-weight: 700;
     font-size: 0.95rem;
     color: #e2e8f0;

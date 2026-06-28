@@ -5,4 +5,6 @@ export interface ParticipantView {
     micEnabled: boolean;
     isSpeaking: boolean;
     volume: number;
+    colorIndex: number;
+    color: string;
 }

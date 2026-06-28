@@ -2,7 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { AccessToken } from 'livekit-server-sdk';
 import { Router, json } from 'express';
 import { getConfig } from './config';
-import { getRoomParticipantCount } from './livekit-room';
+import { listRoomParticipants } from './livekit-room';
+import { assignColorIndex, resolveUniqueDisplayName } from './join-utils';
 import { createRateLimiter } from './rate-limit';
 
 const joinRateLimit = createRateLimiter({
@@ -48,13 +49,15 @@ export function createApiRouter(): Router {
             return;
         }
 
-        let participantCount: number;
+        let participants;
         try {
-            participantCount = await getRoomParticipantCount();
+            participants = await listRoomParticipants();
         } catch {
             res.status(503).json({ error: 'Не удалось проверить комнату. Попробуйте позже.' });
             return;
         }
+
+        const participantCount = participants.length;
 
         if (participantCount >= config.roomMaxParticipants) {
             res.status(503).json({
@@ -64,7 +67,11 @@ export function createApiRouter(): Router {
             return;
         }
 
-        const displayName = nickname.trim().slice(0, 32);
+        const displayName = resolveUniqueDisplayName(
+            nickname.trim(),
+            participants.map((participant) => participant.name ?? '').filter(Boolean),
+        );
+        const colorIndex = assignColorIndex(participants, participantCount);
         const identity = makeIdentity(displayName);
 
         const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
@@ -87,6 +94,7 @@ export function createApiRouter(): Router {
             roomName: config.roomName,
             identity,
             displayName,
+            colorIndex,
         });
     });
 

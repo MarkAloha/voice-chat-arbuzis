@@ -4,6 +4,7 @@ export interface JoinSession {
     roomName: string;
     identity: string;
     displayName: string;
+    colorIndex: number;
 }
 
 export interface JoinRequest {

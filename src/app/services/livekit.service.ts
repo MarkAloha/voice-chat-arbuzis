@@ -12,6 +12,11 @@ import { JoinSession } from '../models/join.model';
 import { ChatMessage } from '../models/chat.model';
 import { ParticipantView } from '../models/participant.model';
 import { MicGainProcessor } from './mic-gain-processor';
+import {
+    createParticipantMetadata,
+    getPlayerColorHex,
+    readColorIndex,
+} from '../../shared/participant-colors';
 
 const CHAT_TOPIC = 'chat-message';
 const CHAT_DELETE_TOPIC = 'chat-delete';
@@ -22,6 +27,7 @@ export class LiveKitService {
     private readonly volumeLevels = new Map<string, number>();
     private localMicVolume = 100;
     private micGainProcessor: MicGainProcessor | null = null;
+    private localColorIndex = 0;
     private readonly textEncoder = new TextEncoder();
     private readonly textDecoder = new TextDecoder();
 
@@ -41,6 +47,7 @@ export class LiveKitService {
         this.connecting.set(true);
         this.error.set(null);
         this.localIdentity.set(session.identity);
+        this.localColorIndex = session.colorIndex;
         this.setOptimisticLocalParticipant(session);
 
         const room = new Room({
@@ -61,6 +68,7 @@ export class LiveKitService {
             .on(RoomEvent.TrackUnmuted, () => this.syncParticipants())
             .on(RoomEvent.TrackPublished, () => this.syncParticipants())
             .on(RoomEvent.TrackUnpublished, () => this.syncParticipants())
+            .on(RoomEvent.ParticipantMetadataChanged, () => this.syncParticipants())
             .on(RoomEvent.ActiveSpeakersChanged, () => this.syncParticipants())
             .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
                 this.attachAudioTrack(track, participant);
@@ -88,6 +96,7 @@ export class LiveKitService {
             await room.connect(session.livekitUrl, session.token);
             await room.startAudio();
             await room.localParticipant.setMicrophoneEnabled(true);
+            await room.localParticipant.setMetadata(createParticipantMetadata(session.colorIndex));
             await this.setupLocalMicGain(room);
 
             this.room = room;
@@ -213,6 +222,7 @@ export class LiveKitService {
         this.connecting.set(false);
         this.micEnabled.set(true);
         this.localIdentity.set(null);
+        this.localColorIndex = 0;
         this.participants.set([]);
     }
 
@@ -347,6 +357,8 @@ export class LiveKitService {
         isLocal: boolean,
         activeSpeakerIds: Set<string>,
     ): ParticipantView {
+        const colorIndex = this.resolveColorIndex(participant, isLocal);
+
         return {
             identity: participant.identity,
             displayName: participant.name || participant.identity,
@@ -356,7 +368,27 @@ export class LiveKitService {
             volume: isLocal
                 ? this.localMicVolume
                 : (this.volumeLevels.get(participant.identity) ?? 100),
+            colorIndex,
+            color: getPlayerColorHex(colorIndex),
         };
+    }
+
+    private resolveColorIndex(participant: Participant, isLocal: boolean): number {
+        if (isLocal) {
+            return this.localColorIndex;
+        }
+
+        const metadataColor = readColorIndex(participant.metadata);
+        if (metadataColor !== null) {
+            return metadataColor;
+        }
+
+        let hash = 0;
+        for (const char of participant.identity) {
+            hash = (hash + char.charCodeAt(0)) % 5;
+        }
+
+        return hash;
     }
 
     private resolveMicEnabled(participant: Participant, isLocal: boolean): boolean {
@@ -396,6 +428,8 @@ export class LiveKitService {
                 micEnabled: this.micEnabled(),
                 isSpeaking: false,
                 volume: this.localMicVolume,
+                colorIndex: session.colorIndex,
+                color: getPlayerColorHex(session.colorIndex),
             },
         ]);
     }
