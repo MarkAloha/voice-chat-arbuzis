@@ -112,6 +112,25 @@
     font-weight: 600;
 }
 
+.setting-label-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.setting-beta {
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    color: #fbbf24;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
 .setting-hint {
     margin: -0.5rem 0 0;
     color: var(--text-muted);

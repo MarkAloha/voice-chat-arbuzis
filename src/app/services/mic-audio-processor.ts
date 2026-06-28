@@ -13,6 +13,8 @@ export class MicAudioProcessor implements MicGainTrackProcessor {
     private source?: MediaStreamAudioSourceNode;
     private destination?: MediaStreamAudioDestinationNode;
     private audioContext?: AudioContext;
+    /** DTLN создаёт свой контекст; gain-only использует AudioContext LiveKit — его нельзя закрывать. */
+    private ownsAudioContext = false;
     private workletHandle?: Awaited<ReturnType<typeof createNoiseSuppressionWorklet>>;
     private noiseSuppressionEnabled = true;
     private noiseSuppressionActive = false;
@@ -60,10 +62,11 @@ export class MicAudioProcessor implements MicGainTrackProcessor {
         this.destination = undefined;
         this.processedTrack = undefined;
 
-        if (this.audioContext && this.audioContext.state !== 'closed') {
+        if (this.ownsAudioContext && this.audioContext && this.audioContext.state !== 'closed') {
             await this.audioContext.close();
         }
         this.audioContext = undefined;
+        this.ownsAudioContext = false;
     }
 
     setVolume(percent: number): void {
@@ -78,6 +81,7 @@ export class MicAudioProcessor implements MicGainTrackProcessor {
 
     private async initGainOnly(options: MicGainProcessorOptions): Promise<void> {
         this.audioContext = options.audioContext;
+        this.ownsAudioContext = false;
         const source = options.audioContext.createMediaStreamSource(
             new MediaStream([options.track]),
         );
@@ -96,6 +100,7 @@ export class MicAudioProcessor implements MicGainTrackProcessor {
 
     private async initWithNoiseSuppression(options: MicGainProcessorOptions): Promise<void> {
         this.audioContext = new AudioContext({ sampleRate: 16000 });
+        this.ownsAudioContext = true;
         await this.audioContext.resume();
 
         const source = this.audioContext.createMediaStreamSource(

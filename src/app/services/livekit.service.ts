@@ -474,7 +474,9 @@ export class LiveKitService {
         this.noiseSuppressionLoading.set(this.noiseSuppressionEnabled());
         try {
             await this.clearMicProcessor(room);
+            await room.localParticipant.setMicrophoneEnabled(true, this.buildCaptureOptions());
             await this.setupLocalMicProcessor(room);
+            await room.startAudio();
         } finally {
             this.noiseSuppressionLoading.set(false);
         }
