@@ -6,12 +6,24 @@
   <p class="subtitle">Голосовой чат. Введите своё имя и общий пароль, чтобы войти в комнату.</p>
 
   <form (ngSubmit)="submit()">
-    <label>
-      Ваше имя
+    <label class="name-field">
+      <div class="name-label-row">
+        <span>Ваше имя</span>
+        <button
+          type="button"
+          class="icon-btn icon-btn--ghost icon-btn--plain"
+          (click)="pickRandomName()"
+          title="Случайное имя"
+          aria-label="Подставить случайное имя"
+        >
+          ?
+        </button>
+      </div>
+
       <div class="name-input-row">
         <button
           type="button"
-          class="icon-btn icon-btn--ghost"
+          class="icon-btn icon-btn--ghost icon-btn--plain icon-btn--back"
           (click)="goBack()"
           title="Назад"
           aria-label="Назад"
@@ -32,16 +44,6 @@
           maxlength="32"
           required
         />
-
-        <button
-          type="button"
-          class="icon-btn icon-btn--ghost"
-          (click)="pickRandomName()"
-          title="Случайное имя"
-          aria-label="Подставить случайное имя"
-        >
-          ?
-        </button>
       </div>
     </label>
 
