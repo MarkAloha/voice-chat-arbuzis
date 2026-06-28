@@ -107,7 +107,19 @@
                   <span>{{ message.author }}</span>
                   <time>{{ message.sentAt | date: 'HH:mm' }}</time>
                 </div>
-                <p>{{ message.text }}</p>
+                <div class="message-body">
+                  <p>{{ message.text }}</p>
+                  @if (message.isLocal) {
+                    <button
+                      type="button"
+                      class="message-delete"
+                      (click)="deleteMessage(message.id)"
+                      aria-label="Удалить сообщение"
+                    >
+                      ×
+                    </button>
+                  }
+                </div>
               </article>
             }
           }

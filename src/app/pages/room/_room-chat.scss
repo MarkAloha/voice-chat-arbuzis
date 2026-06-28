@@ -53,6 +53,31 @@
 .message p {
   margin: 0;
   overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
+}
+
+.message-body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.message-delete {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: #ef4444;
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 0 0 0.05rem;
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+.message-delete:hover {
+  opacity: 1;
 }
 
 .chat-form {

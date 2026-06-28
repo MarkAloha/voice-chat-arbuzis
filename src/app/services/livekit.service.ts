@@ -12,6 +12,7 @@ import { JoinSession } from '../models/join.model';
 import { MicGainProcessor } from './mic-gain-processor';
 
 const CHAT_TOPIC = 'chat-message';
+const CHAT_DELETE_TOPIC = 'chat-delete';
 
 export interface ParticipantView {
   identity: string;
@@ -25,6 +26,7 @@ export interface ParticipantView {
 export interface ChatMessage {
   id: string;
   author: string;
+  authorIdentity: string;
   text: string;
   sentAt: Date;
   isLocal: boolean;
@@ -80,7 +82,14 @@ export class LiveKitService {
         track.detach();
       })
       .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
-        this.handleChatMessage(payload, participant, topic);
+        if (topic === CHAT_TOPIC) {
+          this.handleChatMessage(payload, participant);
+          return;
+        }
+
+        if (topic === CHAT_DELETE_TOPIC) {
+          this.handleChatDelete(payload, participant);
+        }
       })
       .on(RoomEvent.Disconnected, () => {
         this.connected.set(false);
@@ -146,6 +155,7 @@ export class LiveKitService {
     const chatMessage: ChatMessage = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       author: room.localParticipant.name || room.localParticipant.identity,
+      authorIdentity: room.localParticipant.identity,
       text: message.slice(0, 500),
       sentAt: new Date(),
       isLocal: true,
@@ -164,6 +174,28 @@ export class LiveKitService {
       {
         reliable: true,
         topic: CHAT_TOPIC,
+      },
+    );
+  }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    const room = this.room;
+    if (!room) {
+      return;
+    }
+
+    const message = this.messages().find((item) => item.id === messageId);
+    if (!message?.isLocal) {
+      return;
+    }
+
+    this.removeMessage(messageId);
+
+    await room.localParticipant.publishData(
+      this.textEncoder.encode(JSON.stringify({ id: messageId })),
+      {
+        reliable: true,
+        topic: CHAT_DELETE_TOPIC,
       },
     );
   }
@@ -215,9 +247,8 @@ export class LiveKitService {
   private handleChatMessage(
     payload: Uint8Array,
     participant: Participant | undefined,
-    topic: string | undefined,
   ): void {
-    if (topic !== CHAT_TOPIC || !participant) {
+    if (!participant) {
       return;
     }
 
@@ -235,6 +266,7 @@ export class LiveKitService {
       this.addMessage({
         id: parsed.id || `${Date.now()}-${participant.identity}`,
         author: participant.name || participant.identity,
+        authorIdentity: participant.identity,
         text: text.slice(0, 500),
         sentAt: parsed.sentAt ? new Date(parsed.sentAt) : new Date(),
         isLocal: false,
@@ -244,8 +276,41 @@ export class LiveKitService {
     }
   }
 
+  private handleChatDelete(
+    payload: Uint8Array,
+    participant: Participant | undefined,
+  ): void {
+    if (!participant) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(this.textDecoder.decode(payload)) as {
+        id?: string;
+      };
+      if (!parsed.id) {
+        return;
+      }
+
+      const message = this.messages().find((item) => item.id === parsed.id);
+      if (!message || message.authorIdentity !== participant.identity) {
+        return;
+      }
+
+      this.removeMessage(parsed.id);
+    } catch {
+      // Ignore malformed delete messages.
+    }
+  }
+
   private addMessage(message: ChatMessage): void {
     this.messages.update((messages) => [...messages, message].slice(-100));
+  }
+
+  private removeMessage(messageId: string): void {
+    this.messages.update((messages) =>
+      messages.filter((message) => message.id !== messageId),
+    );
   }
 
   private syncParticipants(): void {

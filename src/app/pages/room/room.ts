@@ -98,6 +98,10 @@ export class RoomComponent implements OnDestroy {
     void this.liveKit.sendMessage(text);
   }
 
+  protected deleteMessage(messageId: string): void {
+    void this.liveKit.deleteMessage(messageId);
+  }
+
   private scrollChatToBottom(): void {
     const element = this.messagesContainer()?.nativeElement;
     if (!element) {
