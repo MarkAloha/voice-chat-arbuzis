@@ -1,6 +1,6 @@
 {
   "name": "voice-chat-arbuzis",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --proxy-config proxy.conf.json",

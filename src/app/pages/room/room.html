@@ -41,22 +41,11 @@
               [class.speaking]="participant.isSpeaking"
               [class.local]="participant.isLocal"
             >
-              <div class="avatar" [class.speaking]="participant.isSpeaking">
-                @if (participant.isLocal) {
-                  Я
-                } @else {
-                  {{ initials(participant.displayName) }}
-                }
-              </div>
-
-              @if (!participant.isLocal) {
-                <span class="name">{{ participant.displayName }}</span>
-              }
-
               @if (participant.isLocal) {
                 <button
                   type="button"
-                  class="mic"
+                  class="avatar mic-avatar"
+                  [class.speaking]="participant.isSpeaking"
                   [class.enabled]="participant.micEnabled"
                   (click)="toggleMic()"
                   [disabled]="!connected()"
@@ -65,6 +54,16 @@
                   <app-mic-icon [enabled]="participant.micEnabled" />
                 </button>
               } @else {
+                <div class="avatar" [class.speaking]="participant.isSpeaking">
+                  {{ initials(participant.displayName) }}
+                </div>
+              }
+
+              @if (!participant.isLocal) {
+                <span class="name">{{ participant.displayName }}</span>
+              }
+
+              @if (!participant.isLocal) {
                 <span
                   class="mic"
                   [class.enabled]="participant.micEnabled"
