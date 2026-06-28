@@ -82,6 +82,10 @@
     opacity: 0.85;
 }
 
+.message.local .message-delete {
+    opacity: 0.85;
+}
+
 .message-delete:hover {
     opacity: 1;
 }

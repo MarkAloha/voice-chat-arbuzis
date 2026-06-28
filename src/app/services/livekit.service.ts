@@ -40,6 +40,7 @@ export class LiveKitService {
 
         this.connecting.set(true);
         this.error.set(null);
+        this.localIdentity.set(session.identity);
         this.setOptimisticLocalParticipant(session);
 
         const room = new Room({
@@ -173,7 +174,8 @@ export class LiveKitService {
         }
 
         const message = this.messages().find((item) => item.id === messageId);
-        if (message?.authorIdentity !== room.localParticipant.identity) {
+        const localId = room.localParticipant.identity;
+        if (!message || (message.authorIdentity !== localId && !message.isLocal)) {
             return;
         }
 
@@ -249,13 +251,18 @@ export class LiveKitService {
                 text?: string;
                 sentAt?: string;
             };
+            const messageId = parsed.id || `${Date.now()}-${participant.identity}`;
+            if (this.messages().some((item) => item.id === messageId)) {
+                return;
+            }
+
             const text = parsed.text?.trim();
             if (!text) {
                 return;
             }
 
             this.addMessage({
-                id: parsed.id || `${Date.now()}-${participant.identity}`,
+                id: messageId,
                 author: participant.name || participant.identity,
                 authorIdentity: participant.identity,
                 text: text.slice(0, 500),

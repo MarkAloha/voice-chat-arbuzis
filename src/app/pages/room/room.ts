@@ -5,7 +5,6 @@ import { Router } from '@angular/router';
 import { MicIconComponent } from '../../components/mic-icon/mic-icon';
 import { JoinService } from '../../services/join.service';
 import { LiveKitService } from '../../services/livekit.service';
-import { ChatMessage } from '../../models/chat.model';
 import { ParticipantView } from '../../models/participant.model';
 
 @Component({
@@ -25,7 +24,6 @@ export class RoomComponent implements OnDestroy {
     protected readonly micEnabled = this.liveKit.micEnabled;
     protected readonly error = this.liveKit.error;
     protected readonly messages = this.liveKit.messages;
-    protected readonly localIdentity = this.liveKit.localIdentity;
     protected messageText = '';
     protected readonly disconnecting = signal(false);
     private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
@@ -103,11 +101,6 @@ export class RoomComponent implements OnDestroy {
 
     protected deleteMessage(messageId: string): void {
         void this.liveKit.deleteMessage(messageId);
-    }
-
-    protected canDeleteMessage(message: ChatMessage): boolean {
-        const identity = this.localIdentity();
-        return identity !== null && message.authorIdentity === identity;
     }
 
     private scrollChatToBottom(): void {
