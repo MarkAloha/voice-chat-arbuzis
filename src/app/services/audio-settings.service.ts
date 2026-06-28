@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 
 const STORAGE_KEY = 'voice-chat.noise-suppression';
 
-/** Предпочтения аудио; по умолчанию шумоподавление включено. */
+/** Предпочтения аудио; по умолчанию шумоподавление выключено. */
 @Injectable({ providedIn: 'root' })
 export class AudioSettingsService {
     readonly noiseSuppression = signal(this.readNoiseSuppression());
@@ -14,18 +14,18 @@ export class AudioSettingsService {
 
     private readNoiseSuppression(): boolean {
         if (typeof localStorage === 'undefined') {
-            return true;
+            return false;
         }
 
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw === null) {
-            return true;
+            return false;
         }
 
         try {
             return JSON.parse(raw) as boolean;
         } catch {
-            return true;
+            return false;
         }
     }
 
