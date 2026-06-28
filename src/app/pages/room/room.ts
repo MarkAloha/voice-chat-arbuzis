@@ -1,4 +1,4 @@
-import { Component, OnDestroy, effect, inject, signal, viewChild, ElementRef } from '@angular/core';
+import { Component, OnDestroy, computed, effect, inject, signal, viewChild, ElementRef } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -18,6 +18,19 @@ export class RoomComponent implements OnDestroy {
     private readonly liveKit = inject(LiveKitService);
     private readonly router = inject(Router);
 
+    protected readonly joinSession = this.joinService.session;
+    protected readonly headerSubtitle = computed(() => {
+        const session = this.joinSession();
+        const roomName = session?.roomName ?? 'main';
+        const localName = this.liveKit.participants().find((participant) => participant.isLocal)?.displayName;
+        const displayName = session?.displayName?.trim() || localName?.trim();
+
+        if (!displayName) {
+            return `Комната · ${roomName}`;
+        }
+
+        return `Комната · ${roomName} · ${displayName}`;
+    });
     protected readonly participants = this.liveKit.participants;
     protected readonly connected = this.liveKit.connected;
     protected readonly connecting = this.liveKit.connecting;

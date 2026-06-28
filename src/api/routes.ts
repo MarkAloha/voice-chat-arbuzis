@@ -1,17 +1,26 @@
+import type { RequestHandler } from 'express';
 import { randomBytes } from 'node:crypto';
 import { AccessToken } from 'livekit-server-sdk';
 import { Router, json } from 'express';
 import { getConfig } from './config';
-import { listRoomParticipants } from './livekit-room';
+import { ensureRoomParticipantLimit, listRoomParticipants } from './livekit-room';
 import { assignColorIndex, resolveUniqueDisplayName } from './join-utils';
-import { createRateLimiter } from './rate-limit';
+import { withJoinLock } from './join-lock';
+import {
+    getEffectiveParticipantCount,
+    getReservedDisplayNames,
+    reserveJoinSlot,
+    syncReservationsWithParticipants,
+} from './join-reservations';
 import { createParticipantMetadata } from '../shared/participant-colors';
 
-const joinRateLimit = createRateLimiter({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
-});
+// TODO: вернуть перед продакшеном — см. git history или блок ниже
+// createRateLimiter({
+//     windowMs: 15 * 60 * 1000,
+//     max: 20,
+//     message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
+// })
+const joinRateLimit: RequestHandler = (_req, _res, next) => next();
 
 function makeIdentity(nickname: string): string {
     const slug =
@@ -29,76 +38,91 @@ export function createApiRouter(): Router {
     router.use(json());
 
     router.post('/join', joinRateLimit, async (req, res) => {
-        let config;
-        try {
-            config = getConfig();
-        } catch {
-            res.status(500).json({ error: 'Сервер не настроен. Обратитесь к администратору.' });
-            return;
-        }
+        await withJoinLock(async () => {
+            let config;
+            try {
+                config = getConfig();
+            } catch {
+                res.status(500).json({ error: 'Сервер не настроен. Обратитесь к администратору.' });
+                return;
+            }
 
-        const password = req.body?.password as string | undefined;
-        const nickname = req.body?.nickname as string | undefined;
+            const password = req.body?.password as string | undefined;
+            const nickname = req.body?.nickname as string | undefined;
 
-        if (!password || !nickname?.trim()) {
-            res.status(400).json({ error: 'Укажите пароль и имя.' });
-            return;
-        }
+            if (!password || !nickname?.trim()) {
+                res.status(400).json({ error: 'Укажите пароль и имя.' });
+                return;
+            }
 
-        if (password !== config.sitePassword) {
-            res.status(401).json({ error: 'Неверный пароль.' });
-            return;
-        }
+            if (password !== config.sitePassword) {
+                res.status(401).json({ error: 'Неверный пароль.' });
+                return;
+            }
 
-        let participants;
-        try {
-            participants = await listRoomParticipants();
-        } catch {
-            res.status(503).json({ error: 'Не удалось проверить комнату. Попробуйте позже.' });
-            return;
-        }
+            try {
+                await ensureRoomParticipantLimit(config.roomMaxParticipants);
+            } catch {
+                res.status(503).json({ error: 'Не удалось подготовить комнату. Попробуйте позже.' });
+                return;
+            }
 
-        const participantCount = participants.length;
+            let participants;
+            try {
+                participants = await listRoomParticipants();
+            } catch {
+                res.status(503).json({ error: 'Не удалось проверить комнату. Попробуйте позже.' });
+                return;
+            }
 
-        if (participantCount >= config.roomMaxParticipants) {
-            res.status(503).json({
-                error: 'Комната заполнена',
-                code: 'room_full',
+            syncReservationsWithParticipants(participants);
+
+            const participantCount = participants.length;
+            const effectiveCount = getEffectiveParticipantCount(participantCount);
+
+            if (effectiveCount >= config.roomMaxParticipants) {
+                res.status(503).json({
+                    error: 'Комната заполнена',
+                    code: 'room_full',
+                });
+                return;
+            }
+
+            const existingNames = [
+                ...participants.map((participant) => participant.name ?? '').filter(Boolean),
+                ...getReservedDisplayNames(),
+            ];
+            const displayName = resolveUniqueDisplayName(nickname.trim(), existingNames);
+            const colorIndex = assignColorIndex(participants, participantCount);
+            const identity = makeIdentity(displayName);
+
+            reserveJoinSlot(identity, displayName);
+
+            const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
+                identity,
+                name: displayName,
+                metadata: createParticipantMetadata(colorIndex),
             });
-            return;
-        }
 
-        const displayName = resolveUniqueDisplayName(
-            nickname.trim(),
-            participants.map((participant) => participant.name ?? '').filter(Boolean),
-        );
-        const colorIndex = assignColorIndex(participants, participantCount);
-        const identity = makeIdentity(displayName);
+            token.addGrant({
+                roomJoin: true,
+                room: config.roomName,
+                canPublish: true,
+                canSubscribe: true,
+                canPublishData: true,
+                canUpdateOwnMetadata: true,
+            });
 
-        const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
-            identity,
-            name: displayName,
-            metadata: createParticipantMetadata(colorIndex),
-        });
+            const jwt = await token.toJwt();
 
-        token.addGrant({
-            roomJoin: true,
-            room: config.roomName,
-            canPublish: true,
-            canSubscribe: true,
-            canPublishData: true,
-            canUpdateOwnMetadata: true,
-        });
-
-        const jwt = await token.toJwt();
-
-        res.json({
-            token: jwt,
-            livekitUrl: config.livekitUrl,
-            roomName: config.roomName,
-            identity,
-            displayName,
-            colorIndex,
+            res.json({
+                token: jwt,
+                livekitUrl: config.livekitUrl,
+                roomName: config.roomName,
+                identity,
+                displayName,
+                colorIndex,
+            });
         });
     });
 

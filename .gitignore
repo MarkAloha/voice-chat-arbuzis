@@ -48,3 +48,4 @@ Thumbs.db
 
 # Local agent rules (not for GitHub)
 .cursor/AGENT.local.md
+.cursor/BACKLOG.local.md
