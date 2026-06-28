@@ -97,19 +97,21 @@
       <h2>Чат</h2>
 
       <div class="messages" #messagesContainer>
-        @if (messages().length === 0) {
-          <p class="empty">Сообщений пока нет</p>
-        } @else {
-          @for (message of messages(); track message.id) {
-            <article class="message" [class.local]="message.isLocal">
-              <div class="message-meta">
-                <span>{{ message.author }}</span>
-                <time>{{ message.sentAt | date: 'HH:mm' }}</time>
-              </div>
-              <p>{{ message.text }}</p>
-            </article>
+        <div class="messages-list">
+          @if (messages().length === 0) {
+            <p class="empty">Сообщений пока нет</p>
+          } @else {
+            @for (message of messages(); track message.id) {
+              <article class="message" [class.local]="message.isLocal">
+                <div class="message-meta">
+                  <span>{{ message.author }}</span>
+                  <time>{{ message.sentAt | date: 'HH:mm' }}</time>
+                </div>
+                <p>{{ message.text }}</p>
+              </article>
+            }
           }
-        }
+        </div>
       </div>
 
       <form class="chat-form" (ngSubmit)="sendMessage()">
