@@ -1,4 +1,4 @@
-import { Component, OnDestroy, effect, inject, viewChild, ElementRef } from '@angular/core';
+import { Component, OnDestroy, effect, inject, signal, viewChild, ElementRef } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -24,7 +24,9 @@ export class RoomComponent implements OnDestroy {
   protected readonly error = this.liveKit.error;
   protected readonly messages = this.liveKit.messages;
   protected messageText = '';
+  protected readonly disconnecting = signal(false);
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
+  private leaveTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const session = this.joinService.session();
@@ -41,6 +43,10 @@ export class RoomComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.leaveTimeout) {
+      clearTimeout(this.leaveTimeout);
+    }
+
     this.liveKit.disconnect();
     this.joinService.clear();
   }
@@ -50,9 +56,18 @@ export class RoomComponent implements OnDestroy {
   }
 
   protected leaveRoom(): void {
-    this.liveKit.disconnect();
-    this.joinService.clear();
-    void this.router.navigateByUrl('/login');
+    if (this.disconnecting()) {
+      return;
+    }
+
+    this.disconnecting.set(true);
+
+    this.leaveTimeout = setTimeout(() => {
+      this.leaveTimeout = null;
+      this.liveKit.disconnect();
+      this.joinService.clear();
+      void this.router.navigateByUrl('/login');
+    }, 500);
   }
 
   protected setVolume(participant: ParticipantView, value: number): void {

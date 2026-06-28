@@ -7,14 +7,17 @@
         <p>Комната · main</p>
       </div>
     </div>
-    @if (connected()) {
+    @if (connected() || disconnecting()) {
       <button
         type="button"
-        class="status online status-btn"
+        class="status status-btn"
+        [class.online]="!disconnecting()"
+        [class.disconnecting]="disconnecting()"
         (click)="leaveRoom()"
+        [disabled]="disconnecting()"
         aria-label="Выйти из комнаты"
       >
-        Подключено
+        {{ disconnecting() ? 'Отключение…' : 'Подключено' }}
       </button>
     } @else {
       <span class="status" [class.online]="connected()">

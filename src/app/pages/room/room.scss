@@ -76,9 +76,21 @@ button.status-btn {
   border: none;
   font: inherit;
   cursor: pointer;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    filter 0.25s ease;
 }
 
-button.status-btn:hover {
+button.status-btn.disconnecting,
+button.status-btn:disabled {
+  background: #334155;
+  color: #e2e8f0;
+  cursor: default;
+  filter: none;
+}
+
+button.status-btn:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 
