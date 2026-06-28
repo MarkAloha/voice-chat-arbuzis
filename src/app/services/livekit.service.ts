@@ -9,28 +9,12 @@ import {
     Track,
 } from 'livekit-client';
 import { JoinSession } from '../models/join.model';
+import { ChatMessage } from '../models/chat.model';
+import { ParticipantView } from '../models/participant.model';
 import { MicGainProcessor } from './mic-gain-processor';
 
 const CHAT_TOPIC = 'chat-message';
 const CHAT_DELETE_TOPIC = 'chat-delete';
-
-export interface ParticipantView {
-    identity: string;
-    displayName: string;
-    isLocal: boolean;
-    micEnabled: boolean;
-    isSpeaking: boolean;
-    volume: number;
-}
-
-export interface ChatMessage {
-    id: string;
-    author: string;
-    authorIdentity: string;
-    text: string;
-    sentAt: Date;
-    isLocal: boolean;
-}
 
 @Injectable({ providedIn: 'root' })
 export class LiveKitService {

@@ -1,18 +1,4 @@
-import { Track } from 'livekit-client';
-
-type MicGainProcessorOptions = {
-    kind: Track.Kind.Audio;
-    track: MediaStreamTrack;
-    audioContext: AudioContext;
-};
-
-type MicGainTrackProcessor = {
-    name: string;
-    init: (opts: MicGainProcessorOptions) => Promise<void>;
-    restart: (opts: MicGainProcessorOptions) => Promise<void>;
-    destroy: () => Promise<void>;
-    processedTrack?: MediaStreamTrack;
-};
+import { MicGainProcessorOptions, MicGainTrackProcessor } from '../types/mic-gain.types';
 
 export class MicGainProcessor implements MicGainTrackProcessor {
     readonly name = 'mic-gain';

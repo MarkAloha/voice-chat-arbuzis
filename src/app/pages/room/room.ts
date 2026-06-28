@@ -4,7 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MicIconComponent } from '../../components/mic-icon/mic-icon';
 import { JoinService } from '../../services/join.service';
-import { LiveKitService, ChatMessage, ParticipantView } from '../../services/livekit.service';
+import { LiveKitService } from '../../services/livekit.service';
+import { ChatMessage } from '../../models/chat.model';
+import { ParticipantView } from '../../models/participant.model';
 
 @Component({
     selector: 'app-room',

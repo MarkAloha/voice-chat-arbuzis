@@ -122,6 +122,8 @@ voice-chat-arbuzis/
 │   └── screenshots/        # Скриншоты для README
 ├── src/
 │   ├── app/
+│   │   ├── models/         # Интерфейсы домена (join, chat, participant)
+│   │   ├── types/          # Вспомогательные типы (mic-gain и т.д.)
 │   │   ├── pages/login/    # Экран входа (пароль + имя)
 │   │   ├── pages/room/     # Голосовая комната
 │   │   ├── services/       # LiveKit, API, сессия

@@ -1,18 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
+import { RateLimitBucket, RateLimitOptions } from './types/rate-limit.types';
 
-type Bucket = {
-    count: number;
-    resetAt: number;
-};
-
-export type RateLimitOptions = {
-    windowMs: number;
-    max: number;
-    message: string;
-};
+export type { RateLimitOptions } from './types/rate-limit.types';
 
 export function createRateLimiter(options: RateLimitOptions) {
-    const buckets = new Map<string, Bucket>();
+    const buckets = new Map<string, RateLimitBucket>();
 
     return (req: Request, res: Response, next: NextFunction): void => {
         const key = req.ip || req.socket.remoteAddress || 'unknown';
