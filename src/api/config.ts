@@ -2,6 +2,7 @@ function isProduction(): boolean {
     return process.env['NODE_ENV'] === 'production';
 }
 
+/** В dev подставляет fallback, в production падает — чтобы не деплоить без секретов. */
 function requireEnv(name: string, devFallback: string): string {
     const value = process.env[name]?.trim();
     if (value) {
@@ -20,6 +21,7 @@ function optionalEnv(name: string, fallback: string): string {
     return value || fallback;
 }
 
+/** RoomServiceClient ходит по HTTP(S), клиент — по WS(S); URL разные, ключи одни. */
 function livekitApiUrlFromClientUrl(clientUrl: string): string {
     return clientUrl.replace(/^ws:\/\//, 'http://').replace(/^wss:\/\//, 'https://');
 }

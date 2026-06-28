@@ -3,6 +3,7 @@ import { RateLimitBucket, RateLimitOptions } from './types/rate-limit.types';
 
 export type { RateLimitOptions } from './types/rate-limit.types';
 
+/** In-memory лимит по IP; без Redis хватает для одного инстанса API. */
 export function createRateLimiter(options: RateLimitOptions) {
     const buckets = new Map<string, RateLimitBucket>();
 

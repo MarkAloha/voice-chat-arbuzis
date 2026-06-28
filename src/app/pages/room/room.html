@@ -166,6 +166,7 @@
             type="button"
             class="mic-btn"
             [class.enabled]="micEnabled()"
+            [style.--player-color]="localPlayerColor()"
             (click)="toggleMic()"
             [disabled]="!connected()"
             [attr.aria-label]="micEnabled() ? 'Выключить микрофон' : 'Включить микрофон'"

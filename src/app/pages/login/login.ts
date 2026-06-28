@@ -7,6 +7,11 @@ import { AuthApiService } from '../../services/auth-api.service';
 import { JoinService } from '../../services/join.service';
 
 const ROOM_FULL_COOLDOWN_MS = 30_000;
+const JOIN_MIN_DELAY_MS = 300; // минимум «Вход…», чтобы кнопка не мигала на быстром API
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 @Component({
     selector: 'app-login',
@@ -71,6 +76,7 @@ export class LoginComponent implements OnDestroy {
 
         this.loading.set(true);
         this.error.set(null);
+        const startedAt = Date.now();
 
         try {
             const session = await this.authApi.join({
@@ -82,16 +88,21 @@ export class LoginComponent implements OnDestroy {
         } catch (err) {
             if (err instanceof JoinError && err.code === 'room_full') {
                 this.activateRoomFullCooldown();
-                return;
+                return; // finally всё равно сбросит loading после JOIN_MIN_DELAY_MS
             }
 
             const message = err instanceof Error ? err.message : 'Не удалось войти в комнату.';
             this.error.set(message);
         } finally {
+            const remaining = JOIN_MIN_DELAY_MS - (Date.now() - startedAt);
+            if (remaining > 0) {
+                await delay(remaining);
+            }
             this.loading.set(false);
         }
     }
 
+    /** Кнопка «Комната заполнена» 30 с — не спамим /join, пока слот не освободится. */
     private activateRoomFullCooldown(): void {
         this.roomFull.set(true);
         this.error.set(null);
@@ -113,6 +124,7 @@ export class LoginComponent implements OnDestroy {
         }
     }
 
+    /** Стек имён для «?» и стрелки назад — только в памяти вкладки. */
     private pushNicknameHistory(value: string): void {
         const history = this.nicknameHistory();
         if (history[history.length - 1] === value) {

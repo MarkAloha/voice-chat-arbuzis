@@ -12,6 +12,7 @@ import { JoinSession } from '../models/join.model';
 import { ChatMessage } from '../models/chat.model';
 import { ParticipantView } from '../models/participant.model';
 import { MicGainProcessor } from './mic-gain-processor';
+import { getMicErrorMessage } from '../utils/mic-error-message';
 import { getPlayerColorHex, readColorIndex } from '../../shared/participant-colors';
 
 const CHAT_TOPIC = 'chat-message';
@@ -35,6 +36,7 @@ export class LiveKitService {
     readonly error = signal<string | null>(null);
     readonly localIdentity = signal<string | null>(null);
 
+    /** Подключение к комнате; микрофон отдельно — отказ в mic не рвёт сессию. */
     async connect(session: JoinSession): Promise<void> {
         if (this.room) {
             return;
@@ -49,7 +51,7 @@ export class LiveKitService {
         const room = new Room({
             adaptiveStream: false,
             dynacast: false,
-            webAudioMix: true,
+            webAudioMix: true, // per-participant setVolume() для удалённых участников
         });
 
         room.on(RoomEvent.ParticipantConnected, (participant) => {
@@ -91,13 +93,16 @@ export class LiveKitService {
         try {
             await room.connect(session.livekitUrl, session.token);
             await room.startAudio();
-            await room.localParticipant.setMicrophoneEnabled(true);
-            await this.setupLocalMicGain(room);
 
             this.room = room;
             this.connected.set(true);
-            this.micEnabled.set(true);
             this.localIdentity.set(room.localParticipant.identity);
+
+            try {
+                await this.enableLocalMicrophone(room);
+            } catch {
+                // Mic error message is already shown; user can still listen and chat.
+            }
 
             for (const participant of room.remoteParticipants.values()) {
                 this.applyRemoteVolume(participant);
@@ -123,11 +128,18 @@ export class LiveKitService {
         }
 
         const next = !this.micEnabled();
-        await room.localParticipant.setMicrophoneEnabled(next);
         if (next) {
-            await this.setupLocalMicGain(room);
+            try {
+                await this.enableLocalMicrophone(room);
+            } catch (err) {
+                this.error.set(getMicErrorMessage(err));
+                this.syncParticipants();
+            }
+            return;
         }
-        this.micEnabled.set(next);
+
+        await room.localParticipant.setMicrophoneEnabled(false);
+        this.micEnabled.set(false);
         this.syncParticipants();
     }
 
@@ -138,6 +150,7 @@ export class LiveKitService {
         this.syncParticipants();
     }
 
+    /** Чат через data channel — отдельного бэкенда для сообщений нет. */
     async sendMessage(text: string): Promise<void> {
         const room = this.room;
         const message = text.trim();
@@ -194,6 +207,7 @@ export class LiveKitService {
         );
     }
 
+    /** Громкость только локально у слушателя; на исходящий поток других не влияет. */
     setParticipantVolume(identity: string, volumePercent: number): void {
         const clamped = Math.max(0, Math.min(200, Math.round(volumePercent)));
         this.volumeLevels.set(identity, clamped);
@@ -246,6 +260,7 @@ export class LiveKitService {
             return;
         }
 
+        // Свои data-сообщения уже показаны optimistically — echo не дублируем.
         if (participant.identity === room.localParticipant.identity) {
             return;
         }
@@ -303,6 +318,7 @@ export class LiveKitService {
         }
     }
 
+    /** Жёсткий потолок истории — data channel не хранит сообщения на сервере. */
     private addMessage(message: ChatMessage): void {
         this.messages.update((messages) => {
             if (messages.some((item) => item.id === message.id)) {
@@ -317,6 +333,7 @@ export class LiveKitService {
         this.messages.update((messages) => messages.filter((message) => message.id !== messageId));
     }
 
+    /** Единый снимок для UI; LiveKit события приходят по одному полю. */
     private syncParticipants(): void {
         const room = this.room;
         if (!room) {
@@ -336,7 +353,7 @@ export class LiveKitService {
 
         views.sort((a, b) => {
             if (a.isLocal) {
-                return -1;
+                return -1; // локальный участник всегда первым в сетке
             }
             if (b.isLocal) {
                 return 1;
@@ -378,6 +395,7 @@ export class LiveKitService {
             return metadataColor;
         }
 
+        // metadata есть не у всех (старые клиенты) — тогда стабильный цвет от identity.
         let hash = 0;
         for (const char of participant.identity) {
             hash = (hash + char.charCodeAt(0)) % 5;
@@ -399,6 +417,21 @@ export class LiveKitService {
         return !publication.isMuted;
     }
 
+    /** Ошибка mic не disconnect'ит комнату — можно слушать и писать в чат. */
+    private async enableLocalMicrophone(room: Room): Promise<void> {
+        try {
+            await room.localParticipant.setMicrophoneEnabled(true);
+            await this.setupLocalMicGain(room);
+            this.micEnabled.set(true);
+            this.error.set(null);
+        } catch (err) {
+            this.micEnabled.set(false);
+            this.error.set(getMicErrorMessage(err));
+            throw err;
+        }
+    }
+
+    /** LiveKit — один processor на трек; gain встроен сюда, а не вторым setProcessor. */
     private async setupLocalMicGain(room: Room): Promise<void> {
         const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
         const track = publication?.audioTrack as LocalAudioTrack | undefined;
@@ -414,6 +447,7 @@ export class LiveKitService {
         this.micGainProcessor.setVolume(this.localMicVolume);
     }
 
+    /** Карточка «я» до ответа LiveKit — без пустой сетки на connect. */
     private setOptimisticLocalParticipant(session: JoinSession): void {
         this.participants.set([
             {

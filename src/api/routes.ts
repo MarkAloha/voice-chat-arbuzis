@@ -1,4 +1,3 @@
-import type { RequestHandler } from 'express';
 import { randomBytes } from 'node:crypto';
 import { AccessToken } from 'livekit-server-sdk';
 import { Router, json } from 'express';
@@ -9,19 +8,20 @@ import { withJoinLock } from './join-lock';
 import {
     getEffectiveParticipantCount,
     getReservedDisplayNames,
+    releaseJoinSlot,
     reserveJoinSlot,
     syncReservationsWithParticipants,
 } from './join-reservations';
+import { createRateLimiter } from './rate-limit';
 import { createParticipantMetadata } from '../shared/participant-colors';
 
-// TODO: вернуть перед продакшеном — см. git history или блок ниже
-// createRateLimiter({
-//     windowMs: 15 * 60 * 1000,
-//     max: 20,
-//     message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
-// })
-const joinRateLimit: RequestHandler = (_req, _res, next) => next();
+const joinRateLimit = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
+});
 
+/** Суффикс в identity — чтобы два «Вася» не конфликтовали в LiveKit при одном displayName. */
 function makeIdentity(nickname: string): string {
     const slug =
         nickname
@@ -124,6 +124,18 @@ export function createApiRouter(): Router {
                 colorIndex,
             });
         });
+    });
+
+    /** Освобождает слот, если JWT выдан, но до LiveKit пользователь не дошёл. */
+    router.post('/join/release', json(), (req, res) => {
+        const identity = req.body?.identity as string | undefined;
+        if (!identity?.trim()) {
+            res.status(400).json({ error: 'Не указан участник.' });
+            return;
+        }
+
+        releaseJoinSlot(identity.trim());
+        res.status(204).end();
     });
 
     return router;

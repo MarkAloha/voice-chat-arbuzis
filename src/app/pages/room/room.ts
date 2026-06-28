@@ -4,8 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MicIconComponent } from '../../components/mic-icon/mic-icon';
 import { JoinService } from '../../services/join.service';
+import { AuthApiService } from '../../services/auth-api.service';
 import { LiveKitService } from '../../services/livekit.service';
 import { ParticipantView } from '../../models/participant.model';
+import { getPlayerColorHex } from '../../../shared/participant-colors';
 
 @Component({
     selector: 'app-room',
@@ -15,6 +17,7 @@ import { ParticipantView } from '../../models/participant.model';
 })
 export class RoomComponent implements OnDestroy {
     private readonly joinService = inject(JoinService);
+    private readonly authApi = inject(AuthApiService);
     private readonly liveKit = inject(LiveKitService);
     private readonly router = inject(Router);
 
@@ -36,6 +39,14 @@ export class RoomComponent implements OnDestroy {
     protected readonly connecting = this.liveKit.connecting;
     protected readonly micEnabled = this.liveKit.micEnabled;
     protected readonly error = this.liveKit.error;
+    protected readonly localPlayerColor = computed(() => {
+        const local = this.participants().find((participant) => participant.isLocal);
+        if (local) {
+            return local.color;
+        }
+
+        return getPlayerColorHex(this.joinSession()?.colorIndex ?? 0);
+    });
     protected readonly messages = this.liveKit.messages;
     protected messageText = '';
     protected readonly disconnecting = signal(false);
@@ -48,7 +59,10 @@ export class RoomComponent implements OnDestroy {
             return;
         }
 
-        void this.liveKit.connect(session).catch(() => undefined);
+        void this.liveKit.connect(session).catch(() => {
+            // JWT уже зарезервировал слот — отдаём его обратно, если WebRTC не поднялся.
+            void this.authApi.releaseJoin(session.identity).catch(() => undefined);
+        });
 
         effect(() => {
             this.messages();
@@ -76,6 +90,7 @@ export class RoomComponent implements OnDestroy {
 
         this.disconnecting.set(true);
 
+        // Короткая пауза — пользователь видит «Отключение…» до редиректа на login.
         this.leaveTimeout = setTimeout(() => {
             this.leaveTimeout = null;
             this.liveKit.disconnect();

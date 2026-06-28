@@ -8,6 +8,7 @@ export function getPlayerColorHex(index: number): string {
     return CS2_PLAYER_COLORS[safeIndex];
 }
 
+/** Пишем colorIndex в metadata — клиенты читают цвет без отдельного API. */
 export function createParticipantMetadata(colorIndex: number): string {
     return JSON.stringify({ colorIndex });
 }

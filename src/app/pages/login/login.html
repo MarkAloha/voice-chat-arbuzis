@@ -46,6 +46,7 @@
                     autocomplete="nickname"
                     maxlength="32"
                     required
+                    [disabled]="loading()"
                     (focus)="onNicknameFocus()"
                     (blur)="onNicknameBlur()"
                 />
@@ -60,16 +61,20 @@
                 [(ngModel)]="password"
                 autocomplete="current-password"
                 required
+                [disabled]="loading()"
             />
         </label>
 
-        @if (error()) {
-            <p class="error">{{ error() }}</p>
-        }
+        <div class="error-slot" aria-live="polite">
+            @if (error()) {
+                <p class="error">{{ error() }}</p>
+            }
+        </div>
 
         <button
             type="submit"
             class="submit"
+            [class.submit--loading]="loading()"
             [class.submit--full]="roomFull()"
             [disabled]="loading() || roomFull()"
         >

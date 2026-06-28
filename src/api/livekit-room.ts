@@ -1,6 +1,7 @@
 import { ParticipantInfo, RoomServiceClient } from 'livekit-server-sdk';
 import { getConfig } from './config';
 
+/** LiveKit отдаёт 404, если комната ещё ни разу не создавалась — для нас это «0 участников». */
 function isRoomNotFoundError(error: unknown): boolean {
     const message = error instanceof Error ? error.message : String(error);
     return /not found|does not exist|404|requested entity was not found/i.test(message);
@@ -30,6 +31,7 @@ export async function listRoomParticipants(): Promise<ParticipantInfo[]> {
     }
 }
 
+/** Создаёт комнату или пересоздаёт с новым maxParticipants, когда в ней никого нет. */
 export async function ensureRoomParticipantLimit(maxParticipants: number): Promise<void> {
     const config = getConfig();
     const roomService = createRoomService();
@@ -53,6 +55,7 @@ export async function ensureRoomParticipantLimit(maxParticipants: number): Promi
         return;
     }
 
+    // LiveKit не умеет менять maxParticipants на лету — только delete + create на пустой комнате.
     if (activeParticipants > 0) {
         return;
     }

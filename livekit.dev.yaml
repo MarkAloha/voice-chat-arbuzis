@@ -1,0 +1,11 @@
+port: 7880
+
+rtc:
+    tcp_port: 7881
+    # Single UDP port for local dev (Windows blocks 50000–50100 on many machines).
+    udp_port: 7882
+    use_external_ip: false
+    node_ip: 127.0.0.1
+
+keys:
+    devkey: my-super-secret-key-123456789012345

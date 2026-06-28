@@ -3,6 +3,7 @@ import { JoinSession } from '../models/join.model';
 
 const SESSION_STORAGE_KEY = 'voice-chat.join-session';
 
+/** JWT и identity между /login и /room; F5 на /room без этого снова на login. */
 @Injectable({ providedIn: 'root' })
 export class JoinService {
     private readonly sessionState = signal<JoinSession | null>(this.readStoredSession());
@@ -20,6 +21,7 @@ export class JoinService {
         this.removeStoredSession();
     }
 
+    /** SSR/пререндер: sessionStorage недоступен — просто null. */
     private readStoredSession(): JoinSession | null {
         if (typeof sessionStorage === 'undefined') {
             return null;

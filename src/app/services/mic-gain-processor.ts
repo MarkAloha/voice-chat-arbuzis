@@ -1,5 +1,6 @@
 import { MicGainProcessorOptions, MicGainTrackProcessor } from '../types/mic-gain.types';
 
+/** Web Audio цепочка: сырой трек → gain → новый MediaStreamTrack в LiveKit. */
 export class MicGainProcessor implements MicGainTrackProcessor {
     readonly name = 'mic-gain';
 
@@ -51,6 +52,6 @@ export class MicGainProcessor implements MicGainTrackProcessor {
             return;
         }
 
-        this.gainNode.gain.setTargetAtTime(gain, context.currentTime, 0.05);
+        this.gainNode.gain.setTargetAtTime(gain, context.currentTime, 0.05); // без щелчка при движении слайдера
     }
 }

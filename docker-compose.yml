@@ -3,11 +3,10 @@ name: voice-chat-arbuzis
 services:
   livekit:
     image: livekit/livekit-server:latest
-    command:
-      - --bind=0.0.0.0
-      - --node-ip=127.0.0.1
-      - "--keys=devkey: my-super-secret-key-123456789012345"
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.dev.yaml:/etc/livekit.yaml:ro
     ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "50000-50100:50000-50100/udp"
+      - '7880:7880'
+      - '7881:7881'
+      - '7882:7882/udp'

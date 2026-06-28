@@ -13,11 +13,11 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 const siteHost = process.env['SITE_HOST'] ?? 'localhost';
 const angularApp = new AngularNodeAppEngine({
-    allowedHosts: [siteHost],
+    allowedHosts: [siteHost], // SSR Host header check — совпадает с доменом за Caddy
     trustProxyHeaders: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto'],
 });
 
-app.set('trust proxy', true);
+app.set('trust proxy', true); // Caddy терминирует TLS и проксирует на :4000
 
 app.use('/api', createApiRouter());
 

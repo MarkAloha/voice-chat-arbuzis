@@ -15,6 +15,7 @@ export class AuthApiService {
                 const body = error.error as ApiError | undefined;
                 const message = body?.error ?? error.message;
 
+/** room_full — отдельный тип, чтобы login показал cooldown, а не красный текст. */
                 if (body?.code === 'room_full') {
                     throw new JoinError(message, body.code);
                 }
@@ -27,5 +28,14 @@ export class AuthApiService {
 
             throw error;
         });
+    }
+
+/** Снимает «мёртвый» резерв слота, если connect в LiveKit не состоялся. */
+    releaseJoin(identity: string): Promise<void> {
+        return firstValueFrom(
+            this.http
+                .post('/api/join/release', { identity }, { responseType: 'text' })
+                .pipe(timeout(5000)),
+        ).then(() => undefined);
     }
 }
