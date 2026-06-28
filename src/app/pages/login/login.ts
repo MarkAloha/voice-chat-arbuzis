@@ -1,5 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
-import { Location } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { pickRandomNickname } from '../../data/random-nicknames';
@@ -16,22 +15,48 @@ export class LoginComponent {
   private readonly authApi = inject(AuthApiService);
   private readonly joinService = inject(JoinService);
   private readonly router = inject(Router);
-  private readonly location = inject(Location);
+
+  private readonly nicknameHistory = signal<string[]>([]);
+  private nicknameOnFocus = '';
 
   protected password = '';
   protected nickname = '';
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly canRestoreNickname = computed(
+    () => this.nicknameHistory().length > 0,
+  );
 
   protected pickRandomName(): void {
+    this.rememberCurrentNickname();
     this.nickname = pickRandomNickname();
   }
 
-  protected goBack(): void {
-    this.location.back();
+  protected restorePreviousNickname(): void {
+    const history = [...this.nicknameHistory()];
+    const previous = history.pop();
+    if (!previous) {
+      return;
+    }
+
+    this.nicknameHistory.set(history);
+    this.nickname = previous;
   }
 
-  protected async submit(): Promise<void> {    if (this.loading()) {
+  protected onNicknameFocus(): void {
+    this.nicknameOnFocus = this.nickname;
+  }
+
+  protected onNicknameBlur(): void {
+    const current = this.nickname.trim();
+    const previous = this.nicknameOnFocus.trim();
+    if (previous && current && previous !== current) {
+      this.pushNicknameHistory(previous);
+    }
+  }
+
+  protected async submit(): Promise<void> {
+    if (this.loading()) {
       return;
     }
 
@@ -52,5 +77,21 @@ export class LoginComponent {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private rememberCurrentNickname(): void {
+    const current = this.nickname.trim();
+    if (current) {
+      this.pushNicknameHistory(current);
+    }
+  }
+
+  private pushNicknameHistory(value: string): void {
+    const history = this.nicknameHistory();
+    if (history[history.length - 1] === value) {
+      return;
+    }
+
+    this.nicknameHistory.set([...history, value]);
   }
 }

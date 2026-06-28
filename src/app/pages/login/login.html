@@ -6,12 +6,12 @@
   <p class="subtitle">Голосовой чат. Введите своё имя и общий пароль, чтобы войти в комнату.</p>
 
   <form (ngSubmit)="submit()">
-    <label class="name-field">
+    <div class="name-field">
       <div class="name-label-row">
-        <span>Ваше имя</span>
+        <label for="nickname">Ваше имя</label>
         <button
           type="button"
-          class="icon-btn icon-btn--ghost icon-btn--plain icon-btn--random"
+          class="icon-btn icon-btn--random"
           (click)="pickRandomName()"
           title="Случайное имя"
           aria-label="Подставить случайное имя"
@@ -21,31 +21,36 @@
       </div>
 
       <div class="name-input-wrap">
-        <button
-          type="button"
-          class="icon-btn icon-btn--ghost icon-btn--plain icon-btn--back"
-          (click)="goBack()"
-          title="Назад"
-          aria-label="Назад"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"
-            />
-          </svg>
-        </button>
+        @if (canRestoreNickname()) {
+          <button
+            type="button"
+            class="icon-btn icon-btn--back"
+            (click)="restorePreviousNickname()"
+            title="Предыдущее имя"
+            aria-label="Вернуть предыдущее имя"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"
+              />
+            </svg>
+          </button>
+        }
 
         <input
+          id="nickname"
           type="text"
           name="nickname"
           [(ngModel)]="nickname"
           autocomplete="nickname"
           maxlength="32"
           required
+          (focus)="onNicknameFocus()"
+          (blur)="onNicknameBlur()"
         />
       </div>
-    </label>
+    </div>
 
     <label>
       Пароль
