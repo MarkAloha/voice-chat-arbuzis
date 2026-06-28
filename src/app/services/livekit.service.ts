@@ -58,9 +58,12 @@ export class LiveKitService {
             })
             .on(RoomEvent.TrackMuted, () => this.syncParticipants())
             .on(RoomEvent.TrackUnmuted, () => this.syncParticipants())
+            .on(RoomEvent.TrackPublished, () => this.syncParticipants())
+            .on(RoomEvent.TrackUnpublished, () => this.syncParticipants())
             .on(RoomEvent.ActiveSpeakersChanged, () => this.syncParticipants())
             .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
                 this.attachAudioTrack(track, participant);
+                this.syncParticipants();
             })
             .on(RoomEvent.TrackUnsubscribed, (track) => {
                 track.detach();
@@ -341,12 +344,25 @@ export class LiveKitService {
             identity: participant.identity,
             displayName: participant.name || participant.identity,
             isLocal,
-            micEnabled: isLocal ? this.micEnabled() : participant.isMicrophoneEnabled,
+            micEnabled: this.resolveMicEnabled(participant, isLocal),
             isSpeaking: activeSpeakerIds.has(participant.identity),
             volume: isLocal
                 ? this.localMicVolume
                 : (this.volumeLevels.get(participant.identity) ?? 100),
         };
+    }
+
+    private resolveMicEnabled(participant: Participant, isLocal: boolean): boolean {
+        if (isLocal) {
+            return this.micEnabled();
+        }
+
+        const publication = participant.getTrackPublication(Track.Source.Microphone);
+        if (!publication) {
+            return false;
+        }
+
+        return !publication.isMuted;
     }
 
     private async setupLocalMicGain(room: Room): Promise<void> {
