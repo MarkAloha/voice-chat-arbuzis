@@ -1,13 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Arbuzis">
-  <rect width="32" height="32" rx="7" fill="#0b0f14"/>
-  <circle cx="16" cy="17" r="11" fill="#15803d"/>
-  <path
-    stroke="#14532d"
-    stroke-width="1.6"
-    stroke-linecap="round"
-    fill="none"
-    d="M7.5 13.5c3 .8 6 .8 9 0s6-.8 9 0M6.5 17c3.5 1 7 1 10.5 0s7-1 10.5 0M7.5 20.5c3 .8 6 .8 9 0s6-.8 9 0"
-  />
-  <path fill="#166534" d="M16 5.5c1.2 1.6 1.4 3 0 4.2-1.4-1.2-1.2-2.6 0-4.2z"/>
-  <path fill="#22c55e" d="M16 5.2c.7 1 1 2 .2 2.8-.8-.8-1.1-1.8-.2-2.8z"/>
+  <rect width="32" height="32" rx="8" fill="#0b0f14"/>
+  <rect x="3.5" y="3.5" width="25" height="25" rx="7" fill="#22c55e" fill-opacity="0.12"/>
+  <text
+    x="16"
+    y="21.5"
+    text-anchor="middle"
+    font-size="15"
+    font-family="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji, sans-serif"
+  >🍉</text>
 </svg>

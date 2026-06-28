@@ -22,7 +22,7 @@ app.set('trust proxy', true);
 app.use('/api', createApiRouter());
 
 app.get('/favicon.ico', (_req, res) => {
-  res.type('image/png').sendFile(join(browserDistFolder, 'favicon-512.png'));
+  res.type('image/svg+xml').sendFile(join(browserDistFolder, 'favicon.svg'));
 });
 
 /**

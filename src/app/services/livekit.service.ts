@@ -53,6 +53,7 @@ export class LiveKitService {
 
     this.connecting.set(true);
     this.error.set(null);
+    this.setOptimisticLocalParticipant(session);
 
     const room = new Room({
       adaptiveStream: false,
@@ -105,6 +106,7 @@ export class LiveKitService {
       const message =
         err instanceof Error ? err.message : 'Не удалось подключиться к комнате.';
       this.error.set(message);
+      this.participants.set([]);
       room.disconnect();
       throw err;
     } finally {
@@ -249,7 +251,6 @@ export class LiveKitService {
   private syncParticipants(): void {
     const room = this.room;
     if (!room) {
-      this.participants.set([]);
       return;
     }
 
@@ -311,5 +312,18 @@ export class LiveKitService {
     }
 
     this.micGainProcessor.setVolume(this.localMicVolume);
+  }
+
+  private setOptimisticLocalParticipant(session: JoinSession): void {
+    this.participants.set([
+      {
+        identity: session.identity,
+        displayName: session.displayName,
+        isLocal: true,
+        micEnabled: this.micEnabled(),
+        isSpeaking: false,
+        volume: this.localMicVolume,
+      },
+    ]);
   }
 }
