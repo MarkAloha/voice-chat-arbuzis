@@ -11,14 +11,30 @@ export function resolvePublicHost(req: Request): string | null {
     return host?.split(':')[0] ?? null;
 }
 
-/** LiveKit WS на том же домене, с которого открыли сайт. */
+function isLocalDevHost(host: string): boolean {
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+}
+
+function resolveRequestProto(req: Request): string {
+    const forwarded = req.get('x-forwarded-proto')?.split(',')[0]?.trim();
+    if (forwarded) {
+        return forwarded;
+    }
+
+    return req.protocol || 'http';
+}
+
+/**
+ * LiveKit WS на том же домене, с которого открыли сайт (Caddy /livekit).
+ * Локально — прямой порт из LIVEKIT_URL (7880), без /livekit.
+ */
 export function resolveLivekitClientUrl(req: Request, fallback: string): string {
     const host = resolvePublicHost(req);
-    if (!host) {
+    if (!host || isLocalDevHost(host)) {
         return fallback;
     }
 
-    const proto = req.get('x-forwarded-proto')?.split(',')[0]?.trim() ?? 'https';
+    const proto = resolveRequestProto(req);
     const wsProto = proto === 'https' ? 'wss' : 'ws';
     return `${wsProto}://${host}/livekit`;
 }

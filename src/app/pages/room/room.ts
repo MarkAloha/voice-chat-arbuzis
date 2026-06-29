@@ -7,6 +7,7 @@ import { JoinService } from '../../services/join.service';
 import { AuthApiService } from '../../services/auth-api.service';
 import { LiveKitService } from '../../services/livekit.service';
 import { WakeLockService } from '../../services/wake-lock.service';
+import { AudioSettingsService } from '../../services/audio-settings.service';
 import { JoinSession } from '../../models/join.model';
 import { ParticipantView } from '../../models/participant.model';
 import { getPlayerColorHex } from '../../../shared/participant-colors';
@@ -22,6 +23,7 @@ export class RoomComponent implements OnDestroy {
     private readonly authApi = inject(AuthApiService);
     private readonly liveKit = inject(LiveKitService);
     private readonly wakeLock = inject(WakeLockService);
+    private readonly audioSettings = inject(AudioSettingsService);
     private readonly router = inject(Router);
 
     protected readonly joinSession = this.joinService.session;
@@ -56,6 +58,7 @@ export class RoomComponent implements OnDestroy {
     protected readonly noiseSuppressionLoading = this.liveKit.noiseSuppressionLoading;
     protected readonly noiseSuppressionActive = this.liveKit.noiseSuppressionActive;
     protected readonly noiseSuppressionAttempted = this.liveKit.noiseSuppressionAttempted;
+    protected readonly uiSoundsEnabled = this.audioSettings.uiSounds;
     protected messageText = '';
     protected readonly settingsOpen = signal(false);
     protected readonly disconnecting = signal(false);
@@ -130,6 +133,10 @@ export class RoomComponent implements OnDestroy {
 
     protected onNoiseSuppressionToggle(enabled: boolean): void {
         void this.liveKit.setNoiseSuppressionEnabled(enabled);
+    }
+
+    protected onUiSoundsToggle(enabled: boolean): void {
+        this.audioSettings.setUiSounds(enabled);
     }
 
     protected leaveRoom(): void {

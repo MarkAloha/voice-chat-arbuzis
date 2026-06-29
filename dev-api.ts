@@ -11,5 +11,5 @@ app.use('/api', createApiRouter());
 app.listen(port, () => {
     const config = getConfig();
     console.log(`API: http://localhost:${port}/api`);
-    console.log(`  room=${config.roomName}, max=${config.roomMaxParticipants}, join-rate-limit=20/15min`);
+    console.log(`  room=${config.roomName}, max=${config.roomMaxParticipants}, join-rate-limit=${process.env['NODE_ENV'] === 'production' ? '20/15min' : 'off (dev)'}`);
 });

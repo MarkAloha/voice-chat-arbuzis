@@ -12,7 +12,7 @@ import {
     reserveJoinSlot,
     syncReservationsWithParticipants,
 } from './join-reservations';
-import { createRateLimiter } from './rate-limit';
+import { createJoinRateLimiter } from './rate-limit';
 import { createParticipantToken, isValidParticipantIdentity } from './join-token';
 import {
     issueResumeCredential,
@@ -21,7 +21,7 @@ import {
 } from './join-resume-credentials';
 import { resolveLivekitClientUrl } from './public-host';
 
-const joinRateLimit = createRateLimiter({
+const joinRateLimit = createJoinRateLimiter({
     windowMs: 15 * 60 * 1000,
     max: 20,
     message: 'Слишком много попыток входа. Попробуйте через 15 минут.',

@@ -23,7 +23,10 @@
                 } @else if (reconnecting()) {
                     Переподключение…
                 } @else {
-                    Подключено
+                    <span class="status-btn__labels" aria-hidden="true">
+                        <span class="status-btn__label status-btn__label--default">Подключено</span>
+                        <span class="status-btn__label status-btn__label--hover">Отключиться</span>
+                    </span>
                 }
             </button>
         } @else {
@@ -41,63 +44,75 @@
         <p class="banner error">{{ error() }}</p>
     }
 
-    @if (settingsOpen()) {
-        <section class="room-settings">
-            <header class="room-settings__header">
-                <button
-                    type="button"
-                    class="back-btn"
-                    (click)="closeSettings()"
-                    aria-label="Назад в комнату"
-                >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                            fill="currentColor"
-                            d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"
-                        />
-                    </svg>
-                </button>
-                <h2>Настройки</h2>
-            </header>
+    <div class="layout">
+        <section class="participants-panel">
+            @if (settingsOpen()) {
+                <div class="room-settings">
+                    <header class="room-settings__header">
+                        <button
+                            type="button"
+                            class="back-btn"
+                            (click)="closeSettings()"
+                            aria-label="Назад к участникам"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path
+                                    fill="currentColor"
+                                    d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"
+                                />
+                            </svg>
+                        </button>
+                        <h2>Настройки</h2>
+                    </header>
 
-            <label
-                class="setting-row"
-                title="Отключение шумоподавления может повысить скорость"
-            >
-                <span class="setting-label">
-                    <span class="setting-label-row">
-                        <span>Шумоподавление</span>
-                        <span class="setting-beta">beta</span>
-                    </span>
-                </span>
-                <span class="setting-toggle">
-                    <input
-                        type="checkbox"
-                        [checked]="noiseSuppressionEnabled()"
-                        [disabled]="noiseSuppressionLoading()"
-                        (change)="onNoiseSuppressionToggle($any($event.target).checked)"
-                    />
-                    <span class="setting-toggle-track" aria-hidden="true"></span>
-                </span>
-            </label>
+                    <label
+                        class="setting-row"
+                        title="Отключение шумоподавления может повысить скорость"
+                    >
+                        <span class="setting-label">
+                            <span class="setting-label-row">
+                                <span>Шумоподавление</span>
+                                <span class="setting-beta">beta</span>
+                            </span>
+                        </span>
+                        <span class="setting-toggle">
+                            <input
+                                type="checkbox"
+                                [checked]="noiseSuppressionEnabled()"
+                                [disabled]="noiseSuppressionLoading()"
+                                (change)="onNoiseSuppressionToggle($any($event.target).checked)"
+                            />
+                            <span class="setting-toggle-track" aria-hidden="true"></span>
+                        </span>
+                    </label>
 
-            @if (noiseSuppressionLoading()) {
-                <p class="setting-hint">Загрузка модели шумоподавления…</p>
-            } @else if (
-                micEnabled() &&
-                noiseSuppressionEnabled() &&
-                noiseSuppressionAttempted() &&
-                !noiseSuppressionActive()
-            ) {
-                <p class="setting-hint">
-                    Фильтр не загрузился — микрофон работает без шумоподавления. Обновите страницу или
-                    проверьте консоль браузера (F12).
-                </p>
-            }
-        </section>
-    } @else {
-        <div class="layout">
-            <section class="participants-panel">
+                    <label class="setting-row">
+                        <span class="setting-label">Звуки интерфейса</span>
+                        <span class="setting-toggle">
+                            <input
+                                type="checkbox"
+                                [checked]="uiSoundsEnabled()"
+                                (change)="onUiSoundsToggle($any($event.target).checked)"
+                            />
+                            <span class="setting-toggle-track" aria-hidden="true"></span>
+                        </span>
+                    </label>
+
+                    @if (noiseSuppressionLoading()) {
+                        <p class="setting-hint">Загрузка модели шумоподавления…</p>
+                    } @else if (
+                        micEnabled() &&
+                        noiseSuppressionEnabled() &&
+                        noiseSuppressionAttempted() &&
+                        !noiseSuppressionActive()
+                    ) {
+                        <p class="setting-hint">
+                            Фильтр не загрузился — микрофон работает без шумоподавления. Обновите
+                            страницу или проверьте консоль браузера (F12).
+                        </p>
+                    }
+                </div>
+            } @else {
                 <div class="participants-heading">
                     <h2>Участники · {{ participants().length }}</h2>
                     <button
@@ -115,80 +130,81 @@
                     </button>
                 </div>
 
-            @if (participants().length === 0) {
-                <p class="empty">Пока никого нет</p>
-            } @else {
-                <div class="participant-grid">
-                    @for (participant of participants(); track participant.identity) {
-                        <article
-                            class="participant-card"
-                            [class.speaking]="participant.isSpeaking"
-                            [class.local]="participant.isLocal"
-                            [style.--player-color]="participant.color"
-                        >
-                            @if (participant.isLocal) {
-                                <button
-                                    type="button"
-                                    class="avatar mic-avatar"
-                                    [class.speaking]="participant.isSpeaking"
-                                    [class.enabled]="micEnabled()"
-                                    [style.--player-color]="participant.color"
-                                    (click)="toggleMic()"
-                                    [disabled]="!connected()"
-                                    [attr.aria-label]="
-                                        micEnabled() ? 'Выключить микрофон' : 'Включить микрофон'
-                                    "
-                                >
-                                    <app-mic-icon [enabled]="micEnabled()" />
-                                </button>
-                            } @else {
-                                <div
-                                    class="avatar"
-                                    [class.speaking]="participant.isSpeaking"
-                                    [style.--player-color]="participant.color"
-                                >
-                                    {{ initials(participant.displayName) }}
-                                </div>
-                            }
+                @if (participants().length === 0) {
+                    <p class="empty">Пока никого нет</p>
+                } @else {
+                    <div class="participant-grid">
+                        @for (participant of participants(); track participant.identity) {
+                            <article
+                                class="participant-card"
+                                [class.speaking]="participant.isSpeaking"
+                                [class.local]="participant.isLocal"
+                                [style.--player-color]="participant.color"
+                            >
+                                @if (participant.isLocal) {
+                                    <button
+                                        type="button"
+                                        class="avatar mic-avatar"
+                                        [class.speaking]="participant.isSpeaking"
+                                        [class.enabled]="micEnabled()"
+                                        [style.--player-color]="participant.color"
+                                        (click)="toggleMic()"
+                                        [disabled]="!connected()"
+                                        [attr.aria-label]="
+                                            micEnabled() ? 'Выключить микрофон' : 'Включить микрофон'
+                                        "
+                                    >
+                                        <app-mic-icon [enabled]="micEnabled()" />
+                                    </button>
+                                } @else {
+                                    <div
+                                        class="avatar"
+                                        [class.speaking]="participant.isSpeaking"
+                                        [style.--player-color]="participant.color"
+                                    >
+                                        {{ initials(participant.displayName) }}
+                                    </div>
+                                }
 
-                            @if (!participant.isLocal) {
-                                <span class="name" [style.color]="participant.color">{{
-                                    participant.displayName
-                                }}</span>
-                            }
+                                @if (!participant.isLocal) {
+                                    <span class="name" [style.color]="participant.color">{{
+                                        participant.displayName
+                                    }}</span>
+                                }
 
-                            @if (!participant.isLocal) {
-                                <span
-                                    class="mic"
-                                    [class.enabled]="participant.micEnabled"
-                                    [attr.aria-label]="
-                                        participant.micEnabled
-                                            ? 'Микрофон включён'
-                                            : 'Микрофон выключен'
-                                    "
-                                >
-                                    <app-mic-icon [enabled]="participant.micEnabled" />
-                                </span>
-                            }
+                                @if (!participant.isLocal) {
+                                    <span
+                                        class="mic"
+                                        [class.enabled]="participant.micEnabled"
+                                        [attr.aria-label]="
+                                            participant.micEnabled
+                                                ? 'Микрофон включён'
+                                                : 'Микрофон выключен'
+                                        "
+                                    >
+                                        <app-mic-icon [enabled]="participant.micEnabled" />
+                                    </span>
+                                }
 
-                            <label class="volume">
-                                <span class="volume-label"
-                                    >Громкость · {{ participant.volume }}%</span
-                                >
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="200"
-                                    step="1"
-                                    [value]="participant.volume"
-                                    (input)="
-                                        setVolume(participant, $any($event.target).valueAsNumber)
-                                    "
-                                />
-                            </label>
-                        </article>
-                    }
-                </div>
+                                <label class="volume">
+                                    <span class="volume-label"
+                                        >Громкость · {{ participant.volume }}%</span
+                                    >
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="200"
+                                        step="1"
+                                        [value]="participant.volume"
+                                        (input)="
+                                            setVolume(participant, $any($event.target).valueAsNumber)
+                                        "
+                                    />
+                                </label>
+                            </article>
+                        }
+                    </div>
+                }
             }
         </section>
 
@@ -241,7 +257,6 @@
             </form>
         </section>
     </div>
-    }
 
     <div class="mic-control">
         <button

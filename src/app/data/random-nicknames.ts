@@ -11,6 +11,9 @@ export const RANDOM_NICKNAMES = [
     'ArBuZiS',
     'Alfem',
     'Данил',
+    'Даниил',
+    'Hartl',
+    'крепыш',
     'Андрей',
     'Кристина',
 ] as const;

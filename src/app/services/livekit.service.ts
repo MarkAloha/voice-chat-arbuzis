@@ -3,6 +3,7 @@ import {
     ConnectionState,
     LocalAudioTrack,
     Participant,
+    ParticipantEvent,
     RemoteParticipant,
     RemoteTrack,
     Room,
@@ -14,13 +15,17 @@ import { ChatMessage } from '../models/chat.model';
 import { ParticipantView } from '../models/participant.model';
 import { MicAudioProcessor } from './mic-audio-processor';
 import { AudioSettingsService } from './audio-settings.service';
+import { UiSoundService } from './ui-sound.service';
 import { getMicErrorMessage } from '../utils/mic-error-message';
+import { getLiveKitErrorMessage } from '../utils/user-error-message';
 import { getPlayerColorHex, readColorIndex } from '../../shared/participant-colors';
 
 const CHAT_TOPIC = 'chat-message';
 const CHAT_DELETE_TOPIC = 'chat-delete';
 const MAX_RECONNECT_DELAY_MS = 10_000;
 const MAX_RECONNECT_ATTEMPTS = 8;
+/** Ниже порога LiveKit activeSpeakers — подсветка включается раньше. */
+const SPEAKING_AUDIO_LEVEL = 0.03;
 
 export type SessionRefreshHandler = () => Promise<JoinSession | null>;
 export type ReconnectFailedHandler = () => void;
@@ -28,6 +33,7 @@ export type ReconnectFailedHandler = () => void;
 @Injectable({ providedIn: 'root' })
 export class LiveKitService {
     private readonly audioSettings = inject(AudioSettingsService);
+    private readonly uiSound = inject(UiSoundService);
     private room: Room | null = null;
     private activeSession: JoinSession | null = null;
     private sessionRefreshHandler: SessionRefreshHandler | null = null;
@@ -41,6 +47,9 @@ export class LiveKitService {
     private micAudioProcessor: MicAudioProcessor | null = null;
     private localColorIndex = 0;
     private micWasEnabledBeforeDisconnect = true;
+    private allowJoinSounds = false;
+    private readonly speakingBound = new WeakSet<Participant>();
+    private speakingPollTimer: ReturnType<typeof setInterval> | null = null;
     private readonly textEncoder = new TextEncoder();
     private readonly textDecoder = new TextDecoder();
 
@@ -113,9 +122,7 @@ export class LiveKitService {
             await this.room.connect(session.livekitUrl, session.token);
             await this.finishConnectedSession(this.room);
         } catch (err) {
-            const message =
-                err instanceof Error ? err.message : 'Не удалось подключиться к комнате.';
-            this.error.set(message);
+            this.error.set(getLiveKitErrorMessage(err));
             this.participants.set([]);
             await this.teardownRoomMedia();
             throw err;
@@ -126,6 +133,8 @@ export class LiveKitService {
 
     /** Явный выход — не пытаться переподключаться. */
     disconnect(): void {
+        this.stopSpeakingPoll();
+        this.allowJoinSounds = false;
         this.intentionalLeave = true;
         this.clearReconnectTimer();
         this.reconnectInFlight = null;
@@ -173,6 +182,7 @@ export class LiveKitService {
         if (next) {
             try {
                 await this.enableLocalMicrophone(room);
+                this.uiSound.playMicOn();
             } catch (err) {
                 this.error.set(getMicErrorMessage(err));
                 this.syncParticipants();
@@ -182,6 +192,7 @@ export class LiveKitService {
 
         await room.localParticipant.setMicrophoneEnabled(false);
         this.micEnabled.set(false);
+        this.uiSound.playMicOff();
         this.syncParticipants();
     }
 
@@ -281,6 +292,11 @@ export class LiveKitService {
         });
 
         room.on(RoomEvent.ParticipantConnected, (participant) => {
+            if (this.allowJoinSounds && !participant.isLocal) {
+                this.uiSound.playParticipantJoined();
+            }
+
+            this.bindSpeakingListener(participant);
             this.applyRemoteVolume(participant);
             this.syncParticipants();
         })
@@ -288,18 +304,32 @@ export class LiveKitService {
                 this.volumeLevels.delete(participant.identity);
                 this.syncParticipants();
             })
-            .on(RoomEvent.TrackMuted, () => this.syncParticipants())
-            .on(RoomEvent.TrackUnmuted, () => this.syncParticipants())
+            .on(RoomEvent.TrackMuted, (publication, participant) => {
+                this.updateLocalMicFromPublication(publication, participant, false);
+                this.syncParticipants();
+            })
+            .on(RoomEvent.TrackUnmuted, (publication, participant) => {
+                this.updateLocalMicFromPublication(publication, participant, true);
+                this.syncParticipants();
+            })
             .on(RoomEvent.TrackPublished, () => this.syncParticipants())
-            .on(RoomEvent.TrackUnpublished, () => this.syncParticipants())
+            .on(RoomEvent.TrackUnpublished, (publication, participant) => {
+                if (participant.isLocal) {
+                    this.updateLocalMicFromPublication(publication, participant, false);
+                }
+                this.syncParticipants();
+            })
             .on(RoomEvent.ParticipantMetadataChanged, () => this.syncParticipants())
             .on(RoomEvent.ActiveSpeakersChanged, () => this.syncParticipants())
             .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
                 this.attachAudioTrack(track, participant);
                 this.syncParticipants();
             })
-            .on(RoomEvent.TrackUnsubscribed, (track) => {
+            .on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
                 track.detach();
+                if (!participant.isLocal && publication.source === Track.Source.Microphone) {
+                    this.syncParticipants();
+                }
             })
             .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
                 if (topic === CHAT_TOPIC) {
@@ -348,10 +378,14 @@ export class LiveKitService {
         }
 
         for (const participant of room.remoteParticipants.values()) {
+            this.bindSpeakingListener(participant);
             this.applyRemoteVolume(participant);
         }
 
+        this.bindSpeakingListener(room.localParticipant);
+        this.startSpeakingPoll();
         this.syncParticipants();
+        this.allowJoinSounds = true;
     }
 
     private scheduleReconnect(): void {
@@ -438,11 +472,7 @@ export class LiveKitService {
                     await this.finishConnectedSession(this.room);
                     return;
                 } catch (err) {
-                    const message =
-                        err instanceof Error
-                            ? err.message
-                            : 'Не удалось переподключиться к комнате.';
-                    this.error.set(message);
+                    this.error.set(getLiveKitErrorMessage(err));
                 }
             } else if (this.reconnectAttempt >= 2) {
                 this.handleReconnectGiveUp();
@@ -472,6 +502,8 @@ export class LiveKitService {
     }
 
     private async teardownRoomMedia(): Promise<void> {
+        this.stopSpeakingPoll();
+        this.allowJoinSounds = false;
         if (this.micAudioProcessor) {
             await this.micAudioProcessor.destroy();
             this.micAudioProcessor = null;
@@ -629,8 +661,6 @@ export class LiveKitService {
 
         const activeSpeakerIds = new Set(room.activeSpeakers.map((speaker) => speaker.identity));
 
-        this.micEnabled.set(room.localParticipant.isMicrophoneEnabled);
-
         const views: ParticipantView[] = [
             this.toView(room.localParticipant, true, activeSpeakerIds),
             ...[...room.remoteParticipants.values()].map((participant) =>
@@ -663,7 +693,7 @@ export class LiveKitService {
             displayName: participant.name || participant.identity,
             isLocal,
             micEnabled: this.resolveMicEnabled(participant, isLocal),
-            isSpeaking: activeSpeakerIds.has(participant.identity),
+            isSpeaking: this.isParticipantSpeaking(participant, activeSpeakerIds, isLocal),
             volume: isLocal
                 ? this.localMicVolume
                 : (this.volumeLevels.get(participant.identity) ?? 100),
@@ -695,12 +725,76 @@ export class LiveKitService {
             return this.micEnabled();
         }
 
-        const publication = participant.getTrackPublication(Track.Source.Microphone);
-        if (!publication) {
+        if (!participant.isMicrophoneEnabled) {
             return false;
         }
 
-        return !publication.isMuted;
+        const publication = participant.getTrackPublication(Track.Source.Microphone);
+        if (!publication || publication.isMuted) {
+            return false;
+        }
+
+        const audioTrack = publication.audioTrack;
+        return Boolean(audioTrack && !audioTrack.isMuted);
+    }
+
+    private updateLocalMicFromPublication(
+        publication: { source: Track.Source },
+        participant: Participant,
+        enabled: boolean,
+    ): void {
+        if (!participant.isLocal || publication.source !== Track.Source.Microphone) {
+            return;
+        }
+
+        this.micEnabled.set(enabled);
+    }
+
+    private bindSpeakingListener(participant: Participant): void {
+        if (this.speakingBound.has(participant)) {
+            return;
+        }
+
+        this.speakingBound.add(participant);
+        participant.on(ParticipantEvent.IsSpeakingChanged, () => this.syncParticipants());
+    }
+
+    private isParticipantSpeaking(
+        participant: Participant,
+        activeSpeakerIds: Set<string>,
+        isLocal: boolean,
+    ): boolean {
+        if (!this.resolveMicEnabled(participant, isLocal)) {
+            return false;
+        }
+
+        if (activeSpeakerIds.has(participant.identity)) {
+            return true;
+        }
+
+        if (participant.isSpeaking) {
+            return true;
+        }
+
+        return participant.audioLevel >= SPEAKING_AUDIO_LEVEL;
+    }
+
+    private startSpeakingPoll(): void {
+        this.stopSpeakingPoll();
+        this.speakingPollTimer = setInterval(() => {
+            if (!this.room) {
+                return;
+            }
+
+            this.syncParticipants();
+        }, 80);
+    }
+
+    private stopSpeakingPoll(): void {
+        if (this.speakingPollTimer) {
+            clearInterval(this.speakingPollTimer);
+            this.speakingPollTimer = null;
+        }
     }
 
     private async enableLocalMicrophone(room: Room): Promise<void> {

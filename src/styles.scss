@@ -140,7 +140,9 @@ app-room .participant-card {
 
 app-room .participant-card.speaking {
     border-color: var(--accent);
-    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25);
+    box-shadow:
+        0 0 0 2px rgba(34, 197, 94, 0.55),
+        0 0 20px rgba(34, 197, 94, 0.35);
 }
 
 app-room .avatar {
@@ -159,7 +161,9 @@ app-room .avatar {
 
 app-room .avatar.speaking {
     border-color: var(--accent);
-    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+    box-shadow:
+        0 0 0 3px rgba(34, 197, 94, 0.5),
+        0 0 14px rgba(34, 197, 94, 0.45);
 }
 
 app-room button.avatar.mic-avatar {

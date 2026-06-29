@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom, timeout } from 'rxjs';
 import { ApiError, JoinError, JoinRequest, JoinResponse, ResumeJoinRequest } from '../models/join.model';
+import { getUserErrorMessage } from '../utils/user-error-message';
 
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
@@ -22,19 +23,36 @@ export class AuthApiService {
     private mapJoinError(error: HttpErrorResponse | Error): never {
         if (error instanceof HttpErrorResponse) {
             const body = error.error as ApiError | undefined;
-            const message = body?.error ?? error.message;
+            const apiMessage = body?.error;
 
             if (body?.code === 'room_full') {
-                throw new JoinError(message, body.code);
+                throw new JoinError(apiMessage ?? 'Комната заполнена', body.code);
+            }
+
+            if (apiMessage) {
+                throw new Error(apiMessage);
+            }
+
+            if (error.status === 0) {
+                throw new Error(
+                    getUserErrorMessage(error, 'Сервер недоступен. Запустите npm run dev и попробуйте снова.'),
+                );
             }
 
             throw new Error(
-                message ||
+                getUserErrorMessage(
+                    error,
                     'Не удалось войти в комнату. Проверьте интернет и попробуйте ещё раз.',
+                ),
             );
         }
 
-        throw error;
+        throw new Error(
+            getUserErrorMessage(
+                error,
+                'Не удалось войти в комнату. Проверьте интернет и попробуйте ещё раз.',
+            ),
+        );
     }
 
 /** Снимает «мёртвый» резерв слота, если connect в LiveKit не состоялся. */

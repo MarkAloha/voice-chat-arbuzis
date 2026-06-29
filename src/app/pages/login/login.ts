@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { pickRandomNickname } from '../../data/random-nicknames';
 import { JoinError } from '../../models/join.model';
+import { getUserErrorMessage } from '../../utils/user-error-message';
 import { AuthApiService } from '../../services/auth-api.service';
 import { JoinService } from '../../services/join.service';
 
@@ -91,7 +92,7 @@ export class LoginComponent implements OnDestroy {
                 return; // finally всё равно сбросит loading после JOIN_MIN_DELAY_MS
             }
 
-            const message = err instanceof Error ? err.message : 'Не удалось войти в комнату.';
+            const message = getUserErrorMessage(err, 'Не удалось войти в комнату.');
             this.error.set(message);
         } finally {
             const remaining = JOIN_MIN_DELAY_MS - (Date.now() - startedAt);
