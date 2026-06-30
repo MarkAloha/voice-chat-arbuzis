@@ -41,7 +41,7 @@ export function resolveLivekitClientUrl(req: Request, fallback: string): string 
 
 export function parseSiteHosts(raw: string | undefined): string[] {
     if (!raw?.trim()) {
-        return ['localhost'];
+        return ['localhost', '127.0.0.1', '::1'];
     }
 
     return raw

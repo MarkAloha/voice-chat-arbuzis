@@ -1,3 +1,54 @@
 @use './room-layout' as *;
 @use './room-chat' as *;
 @use './room-settings' as *;
+@use './room-participants' as *;
+
+// Кнопка «Подключено» — в room.scss, чтобы ng serve подхватывал правки без перезапуска.
+button.status-btn {
+    border: none;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+button.status-btn.online:not(.disconnecting):not(.reconnecting) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 8.5rem;
+    box-sizing: border-box;
+}
+
+button.status-btn.disconnecting,
+button.status-btn:disabled {
+    background: #334155;
+    color: #e2e8f0;
+    cursor: default;
+}
+
+button.status-btn.online:hover:not(:disabled) {
+    background: rgba(28, 120, 62, 0.95);
+}
+
+.status-btn__labels {
+    display: inline-grid;
+    grid-template-areas: 'label';
+    place-items: center;
+    width: 100%;
+}
+
+.status-btn__labels > .status-btn__label {
+    grid-area: label;
+}
+
+.status-btn__label--hover {
+    opacity: 0;
+}
+
+button.status-btn.online:hover:not(:disabled) .status-btn__label--default {
+    opacity: 0;
+}
+
+button.status-btn.online:hover:not(:disabled) .status-btn__label--hover {
+    opacity: 1;
+}

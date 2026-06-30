@@ -1,8 +1,21 @@
-import { Component, OnDestroy, computed, effect, inject, signal, viewChild, ElementRef } from '@angular/core';
+import {
+    Component,
+    HostListener,
+    OnDestroy,
+    computed,
+    effect,
+    inject,
+    signal,
+    viewChild,
+    ElementRef,
+} from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MicIconComponent } from '../../components/mic-icon/mic-icon';
+import { SignalBarsComponent } from '../../components/signal-bars/signal-bars';
+import { TooltipComponent } from '../../components/tooltip/tooltip';
+import { CHAT_EMOJIS } from '../../data/chat-emojis';
 import { JoinService } from '../../services/join.service';
 import { AuthApiService } from '../../services/auth-api.service';
 import { LiveKitService } from '../../services/livekit.service';
@@ -14,7 +27,7 @@ import { getPlayerColorHex } from '../../../shared/participant-colors';
 
 @Component({
     selector: 'app-room',
-    imports: [DatePipe, FormsModule, MicIconComponent],
+    imports: [DatePipe, FormsModule, MicIconComponent, SignalBarsComponent, TooltipComponent],
     templateUrl: './room.html',
     styleUrl: './room.scss',
 })
@@ -59,10 +72,29 @@ export class RoomComponent implements OnDestroy {
     protected readonly noiseSuppressionActive = this.liveKit.noiseSuppressionActive;
     protected readonly noiseSuppressionAttempted = this.liveKit.noiseSuppressionAttempted;
     protected readonly uiSoundsEnabled = this.audioSettings.uiSounds;
+    protected readonly chatEmojis = CHAT_EMOJIS;
     protected messageText = '';
     protected readonly settingsOpen = signal(false);
     protected readonly disconnecting = signal(false);
+    protected readonly emojiPickerOpen = signal(false);
+    protected readonly inviteCopied = signal(false);
+    protected readonly volumePopoverIdentity = signal<string | null>(null);
+    protected readonly volumePopoverLeft = signal(0);
+    protected readonly volumePopoverTop = signal(0);
+    protected readonly volumePopoverPositioned = signal(false);
+    protected readonly volumePopoverParticipant = computed(() => {
+        const identity = this.volumePopoverIdentity();
+        if (!identity) {
+            return null;
+        }
+
+        return this.participants().find((participant) => participant.identity === identity) ?? null;
+    });
+    private inviteCopiedTimeout: ReturnType<typeof setTimeout> | null = null;
     private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
+    private readonly volumePopoverPanel = viewChild<ElementRef<HTMLElement>>('volumePopoverPanel');
+    private hideVolumePopoverTimer: ReturnType<typeof setTimeout> | null = null;
+    private showVolumePopoverTimer: ReturnType<typeof setTimeout> | null = null;
     private leaveTimeout: ReturnType<typeof setTimeout> | null = null;
     private readonly visibilityListener = (): void => {
         if (document.visibilityState === 'visible') {
@@ -82,6 +114,7 @@ export class RoomComponent implements OnDestroy {
 
         if (typeof document !== 'undefined') {
             document.addEventListener('visibilitychange', this.visibilityListener);
+            document.addEventListener('scroll', this.onScrollCloseVolumePopover, true);
         }
 
         void this.liveKit.connect(session).catch(() => {
@@ -98,11 +131,33 @@ export class RoomComponent implements OnDestroy {
                 void this.wakeLock.acquire();
             }
         });
+
+        effect(() => {
+            const identity = this.volumePopoverIdentity();
+            const panel = this.volumePopoverPanel();
+            if (!identity || !panel) {
+                return;
+            }
+
+            queueMicrotask(() => {
+                requestAnimationFrame(() => this.repositionVolumePopover());
+            });
+        });
     }
 
     ngOnDestroy(): void {
         if (this.leaveTimeout) {
             clearTimeout(this.leaveTimeout);
+        }
+
+        if (this.inviteCopiedTimeout) {
+            clearTimeout(this.inviteCopiedTimeout);
+        }
+
+        this.cancelHideVolumePopover();
+        this.cancelShowVolumePopover();
+        if (typeof document !== 'undefined') {
+            document.removeEventListener('scroll', this.onScrollCloseVolumePopover, true);
         }
 
         this.liveKit.registerSessionRefreshHandler(null);
@@ -119,8 +174,33 @@ export class RoomComponent implements OnDestroy {
         }
     }
 
+    protected micTooltip(enabled: boolean): string {
+        return enabled ? 'Микрофон включён' : 'Микрофон выключен';
+    }
+
+    protected listenTooltip(participant: ParticipantView): string {
+        if (participant.listenVolume === 0) {
+            return participant.isLocal
+                ? 'Входящий звук выключен · нажмите, чтобы включить'
+                : 'Без звука · нажмите, чтобы включить';
+        }
+
+        return participant.isLocal
+            ? 'Общая громкость входящего звука · нажмите, чтобы выключить'
+            : 'Нажмите, чтобы выключить звук';
+    }
+
     protected toggleMic(): void {
         void this.liveKit.toggleMic();
+    }
+
+    protected toggleParticipantMic(participant: ParticipantView, event: MouseEvent): void {
+        event.stopPropagation();
+        if (!participant.isLocal) {
+            return;
+        }
+
+        this.toggleMic();
     }
 
     protected openSettings(): void {
@@ -145,6 +225,7 @@ export class RoomComponent implements OnDestroy {
         }
 
         this.disconnecting.set(true);
+        this.liveKit.announceLeave();
 
         this.leaveTimeout = setTimeout(() => {
             this.leaveTimeout = null;
@@ -159,13 +240,173 @@ export class RoomComponent implements OnDestroy {
         }, 500);
     }
 
-    protected setVolume(participant: ParticipantView, value: number): void {
+    protected setListenVolume(participant: ParticipantView, value: number): void {
+        const clamped = Math.max(0, Math.min(200, Math.round(value)));
+
         if (participant.isLocal) {
-            this.liveKit.setLocalMicVolume(value);
+            this.liveKit.setMasterIncomingVolume(clamped);
+        } else {
+            this.liveKit.setParticipantVolume(participant.identity, clamped);
+        }
+
+        if (this.volumePopoverIdentity() === participant.identity) {
+            requestAnimationFrame(() => this.repositionVolumePopover());
+        }
+    }
+
+    protected onListenButtonPointerDown(participant: ParticipantView, event: PointerEvent): void {
+        if (event.button !== 0) {
             return;
         }
 
-        this.liveKit.setParticipantVolume(participant.identity, value);
+        event.preventDefault();
+        event.stopPropagation();
+        this.cancelShowVolumePopover();
+        this.closeVolumePopover();
+        this.liveKit.toggleListenMute(participant.identity, participant.isLocal);
+    }
+
+    protected onListenControlEnter(participant: ParticipantView): void {
+        this.cancelHideVolumePopover();
+        this.cancelShowVolumePopover();
+
+        if (this.volumePopoverIdentity() === participant.identity) {
+            requestAnimationFrame(() => this.repositionVolumePopover());
+            return;
+        }
+
+        this.showVolumePopoverTimer = setTimeout(() => {
+            this.showVolumePopoverTimer = null;
+            this.openVolumePopover(participant.identity);
+        }, 250);
+    }
+
+    protected scheduleHideVolumePopover(): void {
+        this.cancelHideVolumePopover();
+        this.cancelShowVolumePopover();
+        this.hideVolumePopoverTimer = setTimeout(() => this.closeVolumePopover(), 220);
+    }
+
+    protected cancelHideVolumePopover(): void {
+        if (this.hideVolumePopoverTimer) {
+            clearTimeout(this.hideVolumePopoverTimer);
+            this.hideVolumePopoverTimer = null;
+        }
+    }
+
+    protected onVolumePopoverEnter(): void {
+        this.cancelHideVolumePopover();
+        requestAnimationFrame(() => this.repositionVolumePopover());
+    }
+
+    private cancelShowVolumePopover(): void {
+        if (this.showVolumePopoverTimer) {
+            clearTimeout(this.showVolumePopoverTimer);
+            this.showVolumePopoverTimer = null;
+        }
+    }
+
+    @HostListener('window:resize')
+    protected onWindowResize(): void {
+        if (this.volumePopoverIdentity()) {
+            this.repositionVolumePopover();
+        }
+    }
+
+    private readonly onScrollCloseVolumePopover = (): void => {
+        if (this.volumePopoverIdentity()) {
+            this.closeVolumePopover();
+        }
+    };
+
+    private closeVolumePopover(): void {
+        this.volumePopoverIdentity.set(null);
+        this.volumePopoverPositioned.set(false);
+    }
+
+    private openVolumePopover(identity: string): void {
+        this.volumePopoverPositioned.set(false);
+        this.seedVolumePopoverPosition(identity);
+        this.volumePopoverIdentity.set(identity);
+    }
+
+    private estimatedVolumePopoverSize(): { width: number; height: number } {
+        const root =
+            typeof document !== 'undefined'
+                ? parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+                : 16;
+
+        return {
+            width: Math.round(root * 2.15),
+            height: Math.round(root * 6.9),
+        };
+    }
+
+    private seedVolumePopoverPosition(identity: string): void {
+        const { width, height } = this.estimatedVolumePopoverSize();
+        this.applyVolumePopoverPosition(identity, width, height);
+    }
+
+    private applyVolumePopoverPosition(
+        identity: string,
+        panelWidth: number,
+        panelHeight: number,
+    ): boolean {
+        const anchor = this.resolveVolumePopoverAnchor(identity);
+        if (!anchor) {
+            return false;
+        }
+
+        const rect = anchor.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) {
+            return false;
+        }
+
+        const gap = 0;
+        const margin = 8;
+        const centerX = rect.left + rect.width / 2;
+
+        let top = rect.top - panelHeight - gap;
+        let left = centerX;
+
+        top = Math.max(margin, top);
+        left = Math.max(
+            margin + panelWidth / 2,
+            Math.min(left, window.innerWidth - margin - panelWidth / 2),
+        );
+
+        this.volumePopoverLeft.set(left);
+        this.volumePopoverTop.set(top);
+        return true;
+    }
+
+    private resolveVolumePopoverAnchor(identity: string): HTMLElement | null {
+        if (typeof document === 'undefined') {
+            return null;
+        }
+
+        return document.querySelector(`[data-volume-anchor="${CSS.escape(identity)}"]`);
+    }
+
+    private repositionVolumePopover(): void {
+        const identity = this.volumePopoverIdentity();
+        const panel = this.volumePopoverPanel()?.nativeElement;
+        if (!identity || !panel) {
+            return;
+        }
+
+        const panelWidth = panel.offsetWidth;
+        const panelHeight = panel.offsetHeight;
+        if (panelWidth === 0 && panelHeight === 0) {
+            requestAnimationFrame(() => this.repositionVolumePopover());
+            return;
+        }
+
+        if (!this.applyVolumePopoverPosition(identity, panelWidth, panelHeight)) {
+            return;
+        }
+
+        this.volumePopoverPositioned.set(true);
     }
 
     protected initials(name: string): string {
@@ -184,7 +425,38 @@ export class RoomComponent implements OnDestroy {
     protected sendMessage(): void {
         const text = this.messageText;
         this.messageText = '';
+        this.emojiPickerOpen.set(false);
         void this.liveKit.sendMessage(text);
+    }
+
+    protected toggleEmojiPicker(): void {
+        this.emojiPickerOpen.update((open) => !open);
+    }
+
+    protected insertEmoji(emoji: string): void {
+        const next = `${this.messageText}${emoji}`;
+        this.messageText = next.slice(0, 500);
+    }
+
+    protected async copyInviteLink(): Promise<void> {
+        const url = `${window.location.origin}/login`;
+
+        try {
+            await navigator.clipboard.writeText(url);
+        } catch {
+            return;
+        }
+
+        this.inviteCopied.set(true);
+
+        if (this.inviteCopiedTimeout) {
+            clearTimeout(this.inviteCopiedTimeout);
+        }
+
+        this.inviteCopiedTimeout = setTimeout(() => {
+            this.inviteCopied.set(false);
+            this.inviteCopiedTimeout = null;
+        }, 2000);
     }
 
     protected deleteMessage(messageId: string): void {

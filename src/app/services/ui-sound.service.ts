@@ -29,6 +29,13 @@ export class UiSoundService {
         ]);
     }
 
+    playChatMessage(): void {
+        this.playToneSequence([
+            { frequency: 740, duration: 0.05, delay: 0 },
+            { frequency: 980, duration: 0.08, delay: 0.04 },
+        ]);
+    }
+
     private playToneSequence(
         tones: Array<{ frequency: number; duration: number; delay: number }>,
     ): void {
