@@ -1,6 +1,6 @@
 {
     "name": "voice-chat-arbuzis",
-    "version": "1.12.1",
+    "version": "2.0.0",
     "scripts": {
         "ng": "ng",
         "start": "concurrently -n lk,web -c yellow,green \"npm run livekit\" \"ng serve --host 0.0.0.0 --proxy-config proxy.conf.json\"",
