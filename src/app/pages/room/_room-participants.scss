@@ -20,11 +20,9 @@
     gap: 0.9rem;
     min-height: 3.2rem;
     padding: 0.42rem 0.75rem 0.42rem 0.5rem;
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    border-radius: 12px;
-    background:
-        linear-gradient(90deg, rgba(34, 197, 94, 0.04), transparent 42%),
-        rgba(15, 19, 26, 0.72);
+    border: none;
+    border-radius: 4px;
+    background: transparent;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
     transition:
         border-color 0.15s ease,
@@ -33,22 +31,16 @@
 }
 
 .participant-row__main:hover {
-    border-color: rgba(34, 197, 94, 0.28);
-    background:
-        linear-gradient(90deg, rgba(34, 197, 94, 0.075), transparent 45%),
-        rgba(15, 19, 26, 0.9);
+    background: #35373c;
 }
 
 .participant-row.speaking .participant-row__main {
-    border-color: rgba(34, 197, 94, 0.42);
-    box-shadow: 0 0 18px rgba(34, 197, 94, 0.12);
+    background: #35373c;
 }
 
 .participant-row.speaking .participant-row__avatar {
-    border-color: var(--accent);
-    box-shadow:
-        0 0 0 2px rgba(34, 197, 94, 0.45),
-        0 0 12px rgba(34, 197, 94, 0.35);
+    border-color: #23a559;
+    box-shadow: 0 0 0 2px rgba(35, 165, 89, 0.45);
 }
 
 .participant-row__avatar {
@@ -103,12 +95,12 @@
 }
 
 .participant-row__listen-btn {
-    color: #22c55e;
+    color: #23a559;
 }
 
 .participant-row__listen-btn:hover,
 .participant-row__listen-btn:focus-visible {
-    color: #4ade80;
+    color: #2dc770;
     outline: none;
 }
 
@@ -127,7 +119,7 @@
 
 .participant-row__mic-btn:hover,
 .participant-row__mic-btn:focus-visible {
-    color: #4ade80;
+    color: #2dc770;
     outline: none;
 }
 
@@ -171,7 +163,7 @@
     margin: 0;
     padding: 0;
     cursor: pointer;
-    accent-color: #22c55e;
+    accent-color: #5865f2;
     writing-mode: vertical-lr;
     direction: rtl;
 }
@@ -198,12 +190,10 @@
     flex-shrink: 0;
     margin-top: 1rem;
     padding: 0.9rem 1rem;
-    border: 1px solid rgba(34, 197, 94, 0.16);
-    border-radius: 14px;
-    background:
-        linear-gradient(90deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.04)),
-        rgba(15, 19, 26, 0.9);
-    color: #86efac;
+    border: none;
+    border-radius: 4px;
+    background: #23a559;
+    color: #fff;
     font: inherit;
     font-size: 0.95rem;
     font-weight: 600;
@@ -215,16 +205,13 @@
 
 .invite-btn:hover,
 .invite-btn:focus-visible {
-    border-color: rgba(34, 197, 94, 0.38);
-    background:
-        linear-gradient(90deg, rgba(34, 197, 94, 0.18), rgba(34, 197, 94, 0.08)),
-        rgba(15, 19, 26, 0.95);
+    background: #1a8f4a;
     outline: none;
 }
 
 .invite-btn.copied {
-    border-color: rgba(34, 197, 94, 0.45);
-    color: #bbf7d0;
+    background: #248046;
+    color: #fff;
 }
 
 .invite-btn svg {

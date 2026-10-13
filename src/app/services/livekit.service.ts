@@ -28,7 +28,11 @@ import {
 } from '../../shared/connection-quality';
 
 const CHAT_TOPIC = 'chat-message';
+const CHAT_IMAGE_TOPIC = 'chat-image';
 const CHAT_DELETE_TOPIC = 'chat-delete';
+/** Обычный скриншот экрана, без хранения на сервере. */
+const MAX_CHAT_IMAGE_BYTES = 15 * 1024 * 1024;
+const CHAT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 const LEAVE_TOPIC = 'participant-leave';
 const MAX_RECONNECT_DELAY_MS = 10_000;
 const MAX_RECONNECT_ATTEMPTS = 8;
@@ -180,6 +184,7 @@ export class LiveKitService {
         this.noiseSuppressionLoading.set(false);
         this.noiseSuppressionActive.set(false);
         this.noiseSuppressionAttempted.set(false);
+        this.revokeAllMessageImages();
         this.messages.set([]);
         this.connected.set(false);
         this.connecting.set(false);
@@ -274,6 +279,63 @@ export class LiveKitService {
                 topic: CHAT_TOPIC,
             },
         );
+    }
+
+    /** Скриншот уходит только участникам комнаты и живёт в памяти вкладки. */
+    async sendImage(file: File): Promise<void> {
+        const room = this.room;
+        if (!room) {
+            throw new Error('Нет соединения с комнатой.');
+        }
+
+        const mimeType = file.type.toLowerCase();
+        if (!CHAT_IMAGE_TYPES.has(mimeType)) {
+            throw new Error('Можно приложить только картинку.');
+        }
+
+        if (file.size > MAX_CHAT_IMAGE_BYTES) {
+            throw new Error('Скриншот больше 15 МБ.');
+        }
+
+        const messageId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const imageUrl = URL.createObjectURL(file);
+        const chatMessage: ChatMessage = {
+            id: messageId,
+            author: room.localParticipant.name || room.localParticipant.identity,
+            authorIdentity: room.localParticipant.identity,
+            text: '',
+            sentAt: new Date(),
+            isLocal: true,
+            imageUrl,
+        };
+
+        this.addMessage(chatMessage);
+
+        try {
+            const writer = await room.localParticipant.streamBytes({
+                name: messageId,
+                topic: CHAT_IMAGE_TOPIC,
+                mimeType,
+                totalSize: file.size,
+            });
+            const reader = file.stream().getReader();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    break;
+                }
+
+                if (value) {
+                    await writer.write(value);
+                }
+            }
+
+            await writer.close();
+        } catch {
+            this.removeMessage(messageId);
+            throw new Error('Не удалось отправить скриншот.');
+        }
     }
 
     async deleteMessage(messageId: string): Promise<void> {
@@ -372,6 +434,10 @@ export class LiveKitService {
             dynacast: false,
             webAudioMix: true,
             disconnectOnPageLeave: false,
+        });
+
+        room.registerByteStreamHandler(CHAT_IMAGE_TOPIC, (reader, participant) => {
+            void this.receiveChatImage(reader, participant.identity);
         });
 
         room.on(RoomEvent.ParticipantConnected, (participant) => {
@@ -619,6 +685,10 @@ export class LiveKitService {
 
         const room = this.room;
         this.room = null;
+
+        if (room) {
+            room.unregisterByteStreamHandler(CHAT_IMAGE_TOPIC);
+        }
 
         void this.publishLeaveNotice(room);
         if (room) {
@@ -901,16 +971,87 @@ export class LiveKitService {
             }
 
             added = true;
-            return [...messages, message].slice(-100);
+            const next = [...messages, message];
+            const overflow = Math.max(0, next.length - 100);
+            for (const dropped of next.slice(0, overflow)) {
+                this.revokeMessageImage(dropped);
+            }
+
+            return next.slice(-100);
         });
 
-        if (added && !message.isLocal) {
+        if (!added) {
+            this.revokeMessageImage(message);
+            return;
+        }
+
+        if (!message.isLocal) {
             this.uiSound.playChatMessage();
         }
     }
 
     private removeMessage(messageId: string): void {
+        const removed = this.messages().find((message) => message.id === messageId);
+        this.revokeMessageImage(removed);
         this.messages.update((messages) => messages.filter((message) => message.id !== messageId));
+    }
+
+    private revokeAllMessageImages(): void {
+        for (const message of this.messages()) {
+            this.revokeMessageImage(message);
+        }
+    }
+
+    private revokeMessageImage(message: ChatMessage | undefined): void {
+        if (message?.imageUrl) {
+            URL.revokeObjectURL(message.imageUrl);
+        }
+    }
+
+    private async receiveChatImage(
+        reader: {
+            info: { name: string; mimeType: string; timestamp: number; size?: number };
+            readAll: () => Promise<Array<Uint8Array>>;
+        },
+        identity: string,
+    ): Promise<void> {
+        const room = this.room;
+        if (!room || identity === room.localParticipant.identity) {
+            return;
+        }
+
+        const mimeType = reader.info.mimeType.toLowerCase();
+        if (!CHAT_IMAGE_TYPES.has(mimeType)) {
+            return;
+        }
+
+        if (reader.info.size != null && reader.info.size > MAX_CHAT_IMAGE_BYTES) {
+            return;
+        }
+
+        try {
+            const chunks = await reader.readAll();
+            const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+            if (total === 0 || total > MAX_CHAT_IMAGE_BYTES) {
+                return;
+            }
+
+            const parts = chunks.map((chunk) => Uint8Array.from(chunk));
+            const imageUrl = URL.createObjectURL(new Blob(parts, { type: mimeType }));
+            const remote = room.remoteParticipants.get(identity);
+
+            this.addMessage({
+                id: reader.info.name,
+                author: remote?.name || identity,
+                authorIdentity: identity,
+                text: '',
+                sentAt: new Date(reader.info.timestamp),
+                isLocal: false,
+                imageUrl,
+            });
+        } catch {
+            // Битый поток не показываем.
+        }
     }
 
     /** Единый снимок для UI; LiveKit события приходят по одному полю. */

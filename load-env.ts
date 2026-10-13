@@ -4,4 +4,4 @@ import { fileURLToPath } from 'node:url';
 
 const rootDir = dirname(fileURLToPath(import.meta.url));
 
-dotenv.config({ path: resolve(rootDir, '.env') });
+dotenv.config({ path: resolve(rootDir, '.env'), override: true });

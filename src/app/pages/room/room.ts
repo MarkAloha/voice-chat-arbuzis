@@ -40,18 +40,6 @@ export class RoomComponent implements OnDestroy {
     private readonly router = inject(Router);
 
     protected readonly joinSession = this.joinService.session;
-    protected readonly headerSubtitle = computed(() => {
-        const session = this.joinSession();
-        const roomName = session?.roomName ?? 'main';
-        const localName = this.liveKit.participants().find((participant) => participant.isLocal)?.displayName;
-        const displayName = session?.displayName?.trim() || localName?.trim();
-
-        if (!displayName) {
-            return `Комната · ${roomName}`;
-        }
-
-        return `Комната · ${roomName} · ${displayName}`;
-    });
     protected readonly participants = this.liveKit.participants;
     protected readonly connected = this.liveKit.connected;
     protected readonly connecting = this.liveKit.connecting;
@@ -74,6 +62,8 @@ export class RoomComponent implements OnDestroy {
     protected readonly uiSoundsEnabled = this.audioSettings.uiSounds;
     protected readonly chatEmojis = CHAT_EMOJIS;
     protected messageText = '';
+    protected readonly sendingImage = signal(false);
+    protected readonly imageError = signal<string | null>(null);
     protected readonly settingsOpen = signal(false);
     protected readonly disconnecting = signal(false);
     protected readonly emojiPickerOpen = signal(false);
@@ -420,6 +410,65 @@ export class RoomComponent implements OnDestroy {
         }
 
         return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+
+    protected async onImageSelected(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file) {
+            return;
+        }
+
+        await this.sendChatImage(file);
+    }
+
+    protected async onChatPaste(event: ClipboardEvent): Promise<void> {
+        const file = this.imageFromClipboard(event.clipboardData);
+        if (!file) {
+            return;
+        }
+
+        event.preventDefault();
+        await this.sendChatImage(file);
+    }
+
+    private imageFromClipboard(data: DataTransfer | null): File | null {
+        if (!data) {
+            return null;
+        }
+
+        for (const file of Array.from(data.files)) {
+            if (file.type.startsWith('image/')) {
+                return file;
+            }
+        }
+
+        for (const item of Array.from(data.items)) {
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+                return item.getAsFile();
+            }
+        }
+
+        return null;
+    }
+
+    private async sendChatImage(file: File): Promise<void> {
+        if (this.sendingImage()) {
+            return;
+        }
+
+        this.imageError.set(null);
+        this.sendingImage.set(true);
+
+        try {
+            await this.liveKit.sendImage(file);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Не удалось отправить скриншот.';
+            this.imageError.set(message);
+        } finally {
+            this.sendingImage.set(false);
+        }
     }
 
     protected sendMessage(): void {

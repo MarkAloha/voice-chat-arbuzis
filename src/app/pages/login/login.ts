@@ -1,7 +1,6 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { pickRandomNickname } from '../../data/random-nicknames';
+import { Router } from '@angular/router';
 import { JoinError } from '../../models/join.model';
 import { getUserErrorMessage } from '../../utils/user-error-message';
 import { AuthApiService } from '../../services/auth-api.service';
@@ -16,7 +15,7 @@ function delay(ms: number): Promise<void> {
 
 @Component({
     selector: 'app-login',
-    imports: [FormsModule, RouterLink],
+    imports: [FormsModule],
     templateUrl: './login.html',
     styleUrl: './login.scss',
 })
@@ -24,17 +23,16 @@ export class LoginComponent implements OnDestroy {
     private readonly authApi = inject(AuthApiService);
     private readonly joinService = inject(JoinService);
     private readonly router = inject(Router);
+    private readonly passwordInput = viewChild<ElementRef<HTMLInputElement>>('passwordInput');
 
-    private readonly nicknameHistory = signal<string[]>([]);
-    private nicknameOnFocus = '';
     private roomFullTimeout: ReturnType<typeof setTimeout> | null = null;
 
     protected password = '';
     protected nickname = '';
+    protected readonly step = signal<'name' | 'password'>('name');
     protected readonly loading = signal(false);
     protected readonly error = signal<string | null>(null);
     protected readonly roomFull = signal(false);
-    protected readonly canRestoreNickname = computed(() => this.nicknameHistory().length > 0);
 
     ngOnDestroy(): void {
         if (this.roomFullTimeout) {
@@ -42,36 +40,21 @@ export class LoginComponent implements OnDestroy {
         }
     }
 
-    protected pickRandomName(): void {
-        this.rememberCurrentNickname();
-        this.nickname = pickRandomNickname();
-    }
-
-    protected restorePreviousNickname(): void {
-        const history = [...this.nicknameHistory()];
-        const previous = history.pop();
-        if (!previous) {
+    protected continueWithName(): void {
+        const name = this.nickname.trim();
+        if (!name) {
+            this.error.set('Введите имя.');
             return;
         }
 
-        this.nicknameHistory.set(history);
-        this.nickname = previous;
-    }
-
-    protected onNicknameFocus(): void {
-        this.nicknameOnFocus = this.nickname;
-    }
-
-    protected onNicknameBlur(): void {
-        const current = this.nickname.trim();
-        const previous = this.nicknameOnFocus.trim();
-        if (previous && current && previous !== current) {
-            this.pushNicknameHistory(previous);
-        }
+        this.nickname = name;
+        this.error.set(null);
+        this.step.set('password');
+        setTimeout(() => this.passwordInput()?.nativeElement.focus());
     }
 
     protected async submit(): Promise<void> {
-        if (this.loading() || this.roomFull()) {
+        if (this.loading() || this.roomFull() || this.step() !== 'password') {
             return;
         }
 
@@ -82,7 +65,7 @@ export class LoginComponent implements OnDestroy {
         try {
             const session = await this.authApi.join({
                 password: this.password,
-                nickname: this.nickname,
+                nickname: this.nickname.trim(),
             });
             this.joinService.setSession(session, this.password);
             await this.router.navigateByUrl('/room');
@@ -116,22 +99,5 @@ export class LoginComponent implements OnDestroy {
             this.roomFull.set(false);
             this.roomFullTimeout = null;
         }, ROOM_FULL_COOLDOWN_MS);
-    }
-
-    private rememberCurrentNickname(): void {
-        const current = this.nickname.trim();
-        if (current) {
-            this.pushNicknameHistory(current);
-        }
-    }
-
-    /** Стек имён для «?» и стрелки назад — только в памяти вкладки. */
-    private pushNicknameHistory(value: string): void {
-        const history = this.nicknameHistory();
-        if (history[history.length - 1] === value) {
-            return;
-        }
-
-        this.nicknameHistory.set([...history, value]);
     }
 }

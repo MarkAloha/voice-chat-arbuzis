@@ -1,94 +1,53 @@
 <section class="card">
-    <div class="brand">
-        <span class="brand-icon" aria-hidden="true">🍉</span>
-        <h1>Arbuzis</h1>
-    </div>
-    <p class="subtitle">Голосовой чат. Введите своё имя и общий пароль, чтобы войти в комнату.</p>
+    @if (error()) {
+        <p class="error">{{ error() }}</p>
+    }
 
-    <form (ngSubmit)="submit()">
-        <div class="name-field">
-            <div class="name-label-row">
-                <label for="nickname">Ваше имя</label>
-                <button
-                    type="button"
-                    class="icon-btn icon-btn--random"
-                    (click)="pickRandomName()"
-                    title="Случайное имя"
-                    aria-label="Подставить случайное имя"
-                >
-                    ?
-                </button>
-            </div>
-
-            <div class="name-input-wrap">
-                @if (canRestoreNickname()) {
-                    <button
-                        type="button"
-                        class="icon-btn icon-btn--back"
-                        (click)="restorePreviousNickname()"
-                        title="Предыдущее имя"
-                        aria-label="Вернуть предыдущее имя"
-                    >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path
-                                fill="currentColor"
-                                d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"
-                            />
-                        </svg>
-                    </button>
-                }
-
-                <input
-                    id="nickname"
-                    type="text"
-                    name="nickname"
-                    [(ngModel)]="nickname"
-                    autocomplete="nickname"
-                    maxlength="32"
-                    required
-                    [disabled]="loading()"
-                    (focus)="onNicknameFocus()"
-                    (blur)="onNicknameBlur()"
-                />
-            </div>
-        </div>
-
-        <label>
-            Пароль
+    @if (step() === 'name') {
+        <form (ngSubmit)="continueWithName()">
             <input
+                id="nickname"
+                type="text"
+                name="nickname"
+                [(ngModel)]="nickname"
+                autocomplete="nickname"
+                maxlength="32"
+                placeholder="Имя"
+                aria-label="Имя"
+                [disabled]="loading()"
+            />
+
+            <button type="submit" class="submit">Продолжить</button>
+        </form>
+    } @else {
+        <form (ngSubmit)="submit()">
+            <input
+                #passwordInput
+                id="password"
                 type="password"
                 name="password"
                 [(ngModel)]="password"
                 autocomplete="current-password"
-                required
+                placeholder="Пароль"
+                aria-label="Пароль"
                 [disabled]="loading()"
             />
-        </label>
 
-        <div class="error-slot" aria-live="polite">
-            @if (error()) {
-                <p class="error">{{ error() }}</p>
-            }
-        </div>
-
-        <button
-            type="submit"
-            class="submit"
-            [class.submit--loading]="loading()"
-            [class.submit--full]="roomFull()"
-            [disabled]="loading() || roomFull()"
-        >
-            @if (loading()) {
-                Вход…
-            } @else if (roomFull()) {
-                Комната заполнена
-            } @else {
-                Войти в комнату
-            }
-        </button>
-    </form>
-
-    <p class="roadmap-link">
-        <a routerLink="/roadmap">Планы развития и roadmap</a>
-    </p>
+            <button
+                type="submit"
+                class="submit"
+                [class.submit--loading]="loading()"
+                [class.submit--full]="roomFull()"
+                [disabled]="loading() || roomFull()"
+            >
+                @if (loading()) {
+                    Вход…
+                } @else if (roomFull()) {
+                    Комната заполнена
+                } @else {
+                    Войти в комнату
+                }
+            </button>
+        </form>
+    }
 </section>

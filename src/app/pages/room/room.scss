@@ -21,13 +21,13 @@ button.status-btn.online:not(.disconnecting):not(.reconnecting) {
 
 button.status-btn.disconnecting,
 button.status-btn:disabled {
-    background: #334155;
-    color: #e2e8f0;
+    background: #4e5058;
+    color: #f2f3f5;
     cursor: default;
 }
 
 button.status-btn.online:hover:not(:disabled) {
-    background: rgba(28, 120, 62, 0.95);
+    background: #da373c;
 }
 
 .status-btn__labels {

@@ -1,16 +1,8 @@
 <section class="room">
     <header class="topbar">
-        <div class="brand">
-            <span class="brand-icon" aria-hidden="true">🍉</span>
-            <div>
-                <h1>Arbuzis</h1>
-                <p>{{ headerSubtitle() }}</p>
-            </div>
-        </div>
         <div class="topbar-actions">
             @if (connected() || disconnecting()) {
-                <app-tooltip text="Нажмите, чтобы выйти из комнаты">
-                    <button
+                <button
                         type="button"
                         class="status status-btn"
                         [class.online]="!disconnecting() && !reconnecting()"
@@ -31,7 +23,6 @@
                         </span>
                     }
                 </button>
-                </app-tooltip>
             } @else {
                 <span class="status" [class.online]="connected()" [class.reconnecting]="reconnecting()">
                     @if (reconnecting()) {
@@ -118,8 +109,7 @@
             } @else {
                 <div class="participants-heading">
                     <h2>Участники — {{ participants().length }}</h2>
-                    <app-tooltip text="Настройки">
-                        <button
+                    <button
                             type="button"
                             class="settings-btn"
                             (click)="openSettings()"
@@ -132,7 +122,6 @@
                             />
                         </svg>
                         </button>
-                    </app-tooltip>
                 </div>
 
                 @if (participants().length === 0) {
@@ -291,37 +280,70 @@
 
             <div class="messages" #messagesContainer>
                 <div class="messages-list">
-                    @if (messages().length === 0) {
-                        <p class="empty">Сообщений пока нет</p>
-                    } @else {
-                        @for (message of messages(); track message.id) {
-                            <article class="message" [class.local]="message.isLocal">
+                    @for (message of messages(); track message.id) {
+                        <article class="message" [class.local]="message.isLocal">
+                            @if (message.isLocal) {
+                                <div class="message-pill" [class.message-pill--image]="message.imageUrl">
+                                    <div class="message-avatar" aria-hidden="true">
+                                        {{ initials(message.author) }}
+                                    </div>
+                                    <div class="message-pill__body">
+                                        @if (message.imageUrl) {
+                                            <a
+                                                class="message-image-link"
+                                                [href]="message.imageUrl"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <img
+                                                    class="message-image"
+                                                    [src]="message.imageUrl"
+                                                    alt="Скриншот"
+                                                />
+                                            </a>
+                                        }
+                                        @if (message.text) {
+                                            <p>{{ message.text }}</p>
+                                        }
+                                    </div>
+                                    <time>{{ message.sentAt | date: 'HH:mm' }}</time>
+                                    <app-tooltip text="Удалить сообщение">
+                                        <button
+                                            type="button"
+                                            class="message-delete"
+                                            (click)="deleteMessage(message.id)"
+                                            aria-label="Удалить сообщение"
+                                        >
+                                            ×
+                                        </button>
+                                    </app-tooltip>
+                                </div>
+                            } @else {
                                 <div class="message-avatar" aria-hidden="true">
                                     {{ initials(message.author) }}
                                 </div>
-                                <div class="message-content">
-                                    <div class="message-meta">
-                                        <span>{{ message.author }}</span>
-                                        <time>{{ message.sentAt | date: 'HH:mm' }}</time>
-                                    </div>
-                                    <div class="message-body">
+                                <div class="message-incoming">
+                                    <div class="message-name">{{ message.author }}</div>
+                                    @if (message.imageUrl) {
+                                        <a
+                                            class="message-image-frame"
+                                            [href]="message.imageUrl"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <img
+                                                class="message-image"
+                                                [src]="message.imageUrl"
+                                                alt="Скриншот"
+                                            />
+                                        </a>
+                                    }
+                                    @if (message.text) {
                                         <p>{{ message.text }}</p>
-                                        @if (message.isLocal) {
-                                            <app-tooltip text="Удалить сообщение">
-                                                <button
-                                                    type="button"
-                                                    class="message-delete"
-                                                    (click)="deleteMessage(message.id)"
-                                                    aria-label="Удалить сообщение"
-                                                >
-                                                    ×
-                                                </button>
-                                            </app-tooltip>
-                                        }
-                                    </div>
+                                    }
                                 </div>
-                            </article>
-                        }
+                            }
+                        </article>
                     }
                 </div>
             </div>
@@ -341,15 +363,20 @@
                 </div>
             }
 
+            @if (imageError()) {
+                <p class="chat-image-error">{{ imageError() }}</p>
+            }
+
             <form class="chat-form" (ngSubmit)="sendMessage()">
                 <div class="chat-form__input-wrap">
-                    <app-tooltip text="Прикрепить файл (скоро)">
+                    <app-tooltip text="Прикрепить файл">
                         <span class="chat-form__icon-wrap">
                             <button
                                 type="button"
                                 class="chat-form__icon-btn chat-form__attach"
-                                disabled
-                                aria-label="Прикрепить файл (скоро)"
+                                (click)="imageInput.click()"
+                                [disabled]="!connected() || sendingImage()"
+                                aria-label="Прикрепить файл"
                             >
                                 <svg viewBox="0 0 24 24" aria-hidden="true">
                                     <path
@@ -362,6 +389,13 @@
                                     />
                                 </svg>
                             </button>
+                            <input
+                                #imageInput
+                                class="chat-file-input"
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp,image/gif"
+                                (change)="onImageSelected($event)"
+                            />
                         </span>
                     </app-tooltip>
                     <input
@@ -372,6 +406,7 @@
                         autocomplete="off"
                         placeholder="Написать сообщение…"
                         [disabled]="!connected()"
+                        (paste)="onChatPaste($event)"
                     />
                     <app-tooltip text="Смайлики">
                         <button
@@ -390,18 +425,16 @@
                         </button>
                     </app-tooltip>
                 </div>
-                <app-tooltip text="Отправить">
-                    <button
-                        type="submit"
-                        class="chat-form__send"
-                        [disabled]="!connected() || !messageText.trim()"
-                        aria-label="Отправить"
-                    >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path fill="currentColor" d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z" />
-                        </svg>
-                    </button>
-                </app-tooltip>
+                <button
+                    type="submit"
+                    class="chat-form__send"
+                    [disabled]="!connected() || !messageText.trim()"
+                    aria-label="Отправить"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="currentColor" d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z" />
+                    </svg>
+                </button>
             </form>
         </section>
     </div>
